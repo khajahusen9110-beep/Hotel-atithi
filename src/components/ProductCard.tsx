@@ -1,7 +1,7 @@
 import React from 'react';
 import { Product } from '../types/database';
 import { useCart } from '../context/CartContext';
-import { Plus, Minus, Clock, Flame } from 'lucide-react';
+import { Plus, Minus, Clock, Flame, Star } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -17,123 +17,110 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       : 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=600&auto=format&fit=crop&q=60';
 
   return (
-    <div className="bg-white rounded-3xl border border-stone-200/80 shadow-xs hover:shadow-md transition-all flex flex-col overflow-hidden group">
-      {/* Product Image Banner */}
-      <div className="relative aspect-4/3 overflow-hidden bg-stone-100">
+    <div className="flex gap-4 py-5 border-b border-stone-100">
+      {/* Left: Details */}
+      <div className="flex-1 min-w-0">
+        {/* Veg Indicator */}
+        <div className="flex items-center gap-1.5 mb-1">
+          <span className="w-4 h-4 border-2 border-emerald-600 flex items-center justify-center rounded-sm shrink-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-600" />
+          </span>
+          {product.is_available && (
+            <span className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600">
+              <Star className="w-3 h-3 fill-emerald-600 text-emerald-600" />
+              4.2
+            </span>
+          )}
+        </div>
+
+        {/* Name */}
+        <h3 className="font-bold text-stone-900 text-sm sm:text-base leading-snug truncate">
+          {product.name}
+        </h3>
+
+        {/* Price */}
+        <div className="font-semibold text-stone-800 text-sm mt-0.5">
+          ₹{product.price}
+          {product.unit && <span className="text-stone-400 font-normal text-xs ml-1">· {product.unit}</span>}
+        </div>
+
+        {/* Description */}
+        {product.description && (
+          <p className="text-stone-400 text-xs mt-1 line-clamp-2 leading-relaxed">
+            {product.description}
+          </p>
+        )}
+
+        {/* Meta specs */}
+        <div className="flex items-center gap-3 mt-2 text-[11px] text-stone-400">
+          {product.prep_time_minutes ? (
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {product.prep_time_minutes} min
+            </span>
+          ) : null}
+          {product.calories ? (
+            <span className="flex items-center gap-1">
+              <Flame className="w-3 h-3" />
+              {product.calories} kcal
+            </span>
+          ) : null}
+          {product.weight_grams ? (
+            <span>{product.weight_grams}g</span>
+          ) : null}
+        </div>
+
+        {/* Add to Cart Button */}
+        <div className="mt-3">
+          {!product.is_available ? (
+            <span className="text-xs text-rose-500 font-semibold">Out of Stock</span>
+          ) : cartItem ? (
+            <div className="inline-flex items-center bg-white border-2 border-emerald-500 rounded-lg overflow-hidden shadow-sm">
+              <button
+                onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}
+                className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 transition-colors"
+                aria-label="Decrease quantity"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <span className="px-3 text-sm font-bold text-emerald-700">
+                {cartItem.quantity}
+              </span>
+              <button
+                onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}
+                className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 transition-colors"
+                aria-label="Increase quantity"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => addToCart(product)}
+              className="px-5 py-1.5 rounded-lg bg-white border-2 border-emerald-500 text-emerald-600 text-sm font-bold uppercase tracking-wide hover:bg-emerald-50 transition-all shadow-sm active:scale-95"
+            >
+              Add +
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Right: Image */}
+      <div className="shrink-0 w-28 h-28 sm:w-36 sm:h-36 rounded-xl overflow-hidden bg-stone-100 relative">
         <img
           src={product.image_url || fallbackImage}
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover"
           loading="lazy"
           onError={(e) => {
             (e.target as HTMLImageElement).src = fallbackImage;
           }}
         />
-
-        {/* Pure Veg Badge */}
-        <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm p-1 rounded-md shadow-xs flex items-center justify-center">
-          <span className="w-3.5 h-3.5 border border-emerald-600 flex items-center justify-center p-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-          </span>
-        </div>
-
-        {/* Type / Unit Pill */}
-        {product.unit && (
-          <div className="absolute top-3 right-3 bg-stone-900/80 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
-            {product.unit}
-          </div>
-        )}
-
-        {/* Out of Stock Overlay */}
         {!product.is_available && (
-          <div className="absolute inset-0 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center text-white font-bold text-xs">
-            Currently Unavailable
+          <div className="absolute inset-0 bg-stone-950/50 flex items-center justify-center">
+            <span className="text-white text-[10px] font-bold">Unavailable</span>
           </div>
         )}
-      </div>
-
-      {/* Product Body */}
-      <div className="p-4 flex-1 flex flex-col justify-between">
-        <div>
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-stone-900 text-sm sm:text-base leading-snug group-hover:text-amber-600 transition-colors">
-              {product.name}
-            </h3>
-          </div>
-
-          {product.description && (
-            <p className="text-stone-500 text-xs mt-1 line-clamp-2 leading-relaxed">
-              {product.description}
-            </p>
-          )}
-
-          {/* Meta specs (calories, prep time, weight) */}
-          <div className="flex items-center gap-2.5 mt-2.5 text-[11px] text-stone-500 flex-wrap">
-            {product.prep_time_minutes ? (
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3 text-stone-400" />
-                {product.prep_time_minutes}m prep
-              </span>
-            ) : null}
-
-            {product.calories ? (
-              <span className="flex items-center gap-1">
-                <Flame className="w-3 h-3 text-amber-500" />
-                {product.calories} kcal
-              </span>
-            ) : null}
-
-            {product.weight_grams ? (
-              <span className="text-stone-400 font-medium">
-                Approx. {product.weight_grams}g
-              </span>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Price & Action Button */}
-        <div className="pt-4 mt-2 border-t border-stone-100 flex items-center justify-between gap-2">
-          <div>
-            <span className="text-xs text-stone-400">Price</span>
-            <div className="font-display font-bold text-base sm:text-lg text-stone-900">
-              ₹{product.price}
-            </div>
-          </div>
-
-          <div>
-            {!product.is_available ? (
-              <span className="text-xs text-stone-400 font-medium">Out of Stock</span>
-            ) : cartItem ? (
-              <div className="flex items-center bg-amber-50 rounded-2xl border border-amber-200 px-1 py-0.5">
-                <button
-                  onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}
-                  className="w-7 h-7 rounded-xl bg-white hover:bg-amber-100 text-amber-900 flex items-center justify-center transition-colors shadow-xs"
-                  aria-label="Decrease quantity"
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <span className="px-3 text-xs font-bold text-amber-950">
-                  {cartItem.quantity}
-                </span>
-                <button
-                  onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}
-                  className="w-7 h-7 rounded-xl bg-white hover:bg-amber-100 text-amber-900 flex items-center justify-center transition-colors shadow-xs"
-                  aria-label="Increase quantity"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => addToCart(product)}
-                className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add</span>
-              </button>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );

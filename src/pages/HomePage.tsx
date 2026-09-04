@@ -8,10 +8,12 @@ import {
   Carrot,
   Search,
   X,
-  Sparkles,
   Loader2,
-  ShieldCheck,
-  Zap,
+  MapPin,
+  ChevronRight,
+  Star,
+  Timer,
+  Leaf,
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
@@ -87,141 +89,174 @@ export const HomePage: React.FC = () => {
     return products.filter((p) => p.category_id === selectedCategory);
   }, [products, selectedCategory]);
 
+  // Category carousel icons
+  const categoryIcons: Record<string, string> = {
+    all: '🍽️',
+  };
+
   return (
-    <div className="space-y-6 pb-12">
-      {/* Hero Header */}
-      <section className="relative overflow-hidden rounded-3xl bg-linear-to-br from-amber-500 via-amber-600 to-amber-700 text-white p-6 sm:p-10 shadow-md">
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 backdrop-blur-md text-[11px] font-bold text-amber-200">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            100% Pure Vegetarian Kitchen & Farm Direct
+    <div className="pb-8">
+      {/* Location Bar */}
+      <div className="flex items-center gap-2 py-3 px-1">
+        <MapPin className="w-4 h-4 text-orange-500 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1">
+            <span className="font-bold text-sm text-stone-900 truncate">Hotel Atithi</span>
+            <ChevronRight className="w-3.5 h-3.5 text-stone-400 shrink-0" />
           </div>
-
-          <h1 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
-            Authentic Pure Veg Dishes & Farm-Fresh Vegetables
-          </h1>
-
-          <p className="text-amber-100 text-xs sm:text-sm font-medium leading-relaxed max-w-lg">
-            Cooked with unadulterated cold-pressed oils, organic spices, and vegetables harvested fresh this morning.
-          </p>
-
-          <div className="flex items-center gap-4 pt-2 text-xs font-semibold text-amber-200">
-            <span className="flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-amber-300" /> Fast Delivery
-            </span>
-            <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-amber-300" /> Zero Preservatives
-            </span>
-          </div>
-        </div>
-
-        {/* Decorative graphic glow */}
-        <div className="absolute -right-10 -bottom-10 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-      </section>
-
-      {/* Main Tabs (Food Menu vs Fresh Vegetables) */}
-      <div className="flex items-center justify-center">
-        <div className="bg-stone-200/80 p-1 rounded-2xl flex items-center gap-1 max-w-md w-full shadow-inner">
-          <button
-            onClick={() => handleTabChange('food')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-              activeTab === 'food'
-                ? 'bg-white text-stone-900 shadow-xs scale-100'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <Utensils className={`w-4 h-4 ${activeTab === 'food' ? 'text-amber-600' : 'text-stone-400'}`} />
-            <span>Pure Veg Food</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('vegetable')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-              activeTab === 'vegetable'
-                ? 'bg-white text-stone-900 shadow-xs scale-100'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <Carrot className={`w-4 h-4 ${activeTab === 'vegetable' ? 'text-emerald-600' : 'text-stone-400'}`} />
-            <span>Fresh Vegetables</span>
-          </button>
+          <p className="text-xs text-stone-400 truncate">Pure Veg Kitchen & Farm Fresh Vegetables</p>
         </div>
       </div>
 
-      {/* Debounced Search Bar */}
-      <div className="max-w-xl mx-auto">
-        <div className="relative">
-          <Search className="w-4 h-4 text-stone-400 absolute left-4 top-3.5" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder={
-              activeTab === 'food'
-                ? 'Search paneer butter masala, dal tadka, rotis, biryani...'
-                : 'Search farm tomatoes, palak, potatoes, onions, chillies...'
-            }
-            className="w-full pl-11 pr-10 py-3 rounded-2xl border border-stone-200 bg-white text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-xs transition-all"
-          />
-          {searchInput && (
-            <button
-              onClick={() => {
-                setSearchInput('');
-                setDebouncedQuery('');
-              }}
-              className="absolute right-3.5 top-3 p-1 rounded-full text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+      {/* Search Bar */}
+      <div className="relative mb-4">
+        <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder={
+            activeTab === 'food'
+              ? 'Search for dishes...'
+              : 'Search for vegetables...'
+          }
+          className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-stone-100 text-sm font-medium placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-400/30 focus:bg-white transition-all"
+        />
+        {searchInput && (
+          <button
+            onClick={() => {
+              setSearchInput('');
+              setDebouncedQuery('');
+            }}
+            className="absolute right-3 top-2.5 p-1 rounded-full text-stone-400 hover:text-stone-600 hover:bg-stone-200 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
-      {/* Categories Horizontal Pills */}
-      {categories.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-1 scrollbar-none">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
-              selectedCategory === 'all'
-                ? 'bg-stone-900 text-white shadow-xs'
-                : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-50'
-            }`}
-          >
-            All Items
-          </button>
-          {categories.map((cat) => (
+      {/* Food / Vegetable Tab Switcher */}
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          onClick={() => handleTabChange('food')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            activeTab === 'food'
+              ? 'bg-orange-500 text-white shadow-sm'
+              : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+          }`}
+        >
+          <Utensils className="w-4 h-4" />
+          <span>Food Menu</span>
+        </button>
+        <button
+          onClick={() => handleTabChange('vegetable')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            activeTab === 'vegetable'
+              ? 'bg-emerald-500 text-white shadow-sm'
+              : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+          }`}
+        >
+          <Carrot className="w-4 h-4" />
+          <span>Fresh Veggies</span>
+        </button>
+      </div>
+
+      {/* Category Carousel */}
+      {categories.length > 0 && !debouncedQuery && (
+        <div className="mb-2">
+          <h2 className="font-bold text-sm text-stone-800 mb-3 px-1">What's on your mind?</h2>
+          <div className="flex items-center gap-4 overflow-x-auto pb-3 scrollbar-none">
             <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
-                selectedCategory === cat.id
-                  ? 'bg-amber-500 text-white shadow-xs border-amber-600'
-                  : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-50'
-              }`}
+              onClick={() => setSelectedCategory('all')}
+              className="flex flex-col items-center gap-1.5 shrink-0"
             >
-              {cat.name}
+              <div
+                className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl border-2 transition-all ${
+                  selectedCategory === 'all'
+                    ? 'border-orange-500 bg-orange-50'
+                    : 'border-stone-100 bg-stone-50'
+                }`}
+              >
+                🍽️
+              </div>
+              <span className="text-[11px] font-medium text-stone-600">All</span>
             </button>
-          ))}
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className="flex flex-col items-center gap-1.5 shrink-0"
+              >
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl border-2 transition-all ${
+                    selectedCategory === cat.id
+                      ? activeTab === 'food'
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-emerald-500 bg-emerald-50'
+                      : 'border-stone-100 bg-stone-50'
+                  }`}
+                >
+                  {cat.icon || (activeTab === 'food' ? '🍛' : '🥬')}
+                </div>
+                <span className="text-[11px] font-medium text-stone-600 text-center max-w-[64px] truncate">
+                  {cat.name}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Info Banner */}
+      {!debouncedQuery && (
+        <div className="flex items-center gap-4 my-4 px-1">
+          <div className="flex items-center gap-1.5 text-xs text-stone-500">
+            <Timer className="w-4 h-4 text-orange-500" />
+            <span className="font-medium">30-45 min</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-stone-500">
+            <Star className="w-4 h-4 text-emerald-500 fill-emerald-500" />
+            <span className="font-medium">4.2 Rated</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-stone-500">
+            <Leaf className="w-4 h-4 text-emerald-500" />
+            <span className="font-medium">100% Veg</span>
+          </div>
+        </div>
+      )}
+
+      {/* Section Header */}
+      <div className="flex items-center justify-between px-1 mb-1">
+        <h2 className="font-bold text-base text-stone-900">
+          {debouncedQuery
+            ? `Results for "${debouncedQuery}"`
+            : selectedCategory !== 'all'
+            ? categories.find((c) => c.id === selectedCategory)?.name || 'Menu'
+            : activeTab === 'food'
+            ? 'Pure Veg Menu'
+            : 'Fresh Farm Vegetables'}
+        </h2>
+        <span className="text-xs text-stone-400 font-medium">
+          {filteredProducts.length} items
+        </span>
+      </div>
 
       {/* Catalog Display */}
       {loading ? (
         <div className="py-20 flex flex-col items-center justify-center gap-3 text-stone-400">
-          <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-          <span className="text-xs font-semibold">Fetching freshest items...</span>
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+          <span className="text-xs font-semibold">Loading...</span>
         </div>
       ) : filteredProducts.length === 0 ? (
-        <div className="py-16 text-center bg-white rounded-3xl border border-stone-200 p-8 max-w-md mx-auto space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-            <Search className="w-6 h-6" />
+        <div className="py-16 text-center space-y-3">
+          <div className="w-14 h-14 rounded-full bg-stone-100 text-stone-400 flex items-center justify-center mx-auto">
+            <Search className="w-7 h-7" />
           </div>
-          <h3 className="font-display font-bold text-stone-900 text-base">
+          <h3 className="font-bold text-stone-900 text-sm">
             No items found {debouncedQuery && `for "${debouncedQuery}"`}
           </h3>
-          <p className="text-stone-500 text-xs">
-            Try searching for another dish or clear your filter to view our full pure veg menu.
+          <p className="text-stone-400 text-xs">
+            Try a different search or clear filters to see the full menu.
           </p>
           {(debouncedQuery || selectedCategory !== 'all') && (
             <button
@@ -230,14 +265,14 @@ export const HomePage: React.FC = () => {
                 setDebouncedQuery('');
                 setSelectedCategory('all');
               }}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition-all"
+              className="px-5 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-all"
             >
               View Full Menu
             </button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div className="px-1">
           {filteredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
