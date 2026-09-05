@@ -15,15 +15,19 @@ const defaultSettings: Settings = {
   is_store_open: true,
   opening_time: '08:00',
   closing_time: '23:00',
-  announcement: 'Welcome to Hotel Atithi! Farm-fresh produce & pure veg dining delivered fast.',
+  announcement: 'Welcome to Hotel Atithi! Delicious pure veg & non-veg dining delivered fast.',
   min_order_amount: 149,
   delivery_fee_base: 30,
+  delivery_fee: 30,
   delivery_fee_per_km: 10,
-  free_delivery_threshold: 499,
-  hotel_latitude: 18.5204,
-  hotel_longitude: 73.8567,
-  hotel_address: 'Hotel Atithi, Station Road, Pune, Maharashtra 411001',
+  free_delivery_threshold: 500,
+  free_delivery_above: 500,
+  hotel_latitude: 15.3647,
+  hotel_longitude: 75.1240,
+  hotel_name: 'Hotel Atithi',
+  hotel_address: 'Hotel Atithi, Raichur',
   hotel_phone: '+91 98765 43210',
+  tax_percent: 5,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -55,9 +59,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const isOpen = isStoreCurrentlyOpen(
-    settings.is_store_open,
-    settings.opening_time,
-    settings.closing_time
+    settings?.is_store_open ?? true,
+    settings?.opening_time || '08:00',
+    settings?.closing_time || '23:00'
   );
 
   return (

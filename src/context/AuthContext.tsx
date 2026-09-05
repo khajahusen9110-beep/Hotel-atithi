@@ -8,6 +8,16 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  signUp: (params: {
+    email: string;
+    password: string;
+    fullName: string;
+    mobileNumber: string;
+  }) => Promise<{ data: any; error: any }>;
+  signInWithPassword: (params: {
+    email: string;
+    password: string;
+  }) => Promise<{ data: any; error: any }>;
   signInWithOtp: (phone: string) => Promise<{ error: any }>;
   verifyOtp: (phone: string, token: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -32,13 +42,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error && error.code === 'PGRST116') {
-        // Profile does not exist yet; auto-create basic profile
-        const { data: newProfile } = await supabase
-          .from('profiles')
-          .insert({ id: userId, role: 'customer' })
-          .select()
-          .single();
-        setProfile(newProfile);
+        // Profile row may be in-flight by database trigger; retry once softly without manual insert
+        setTimeout(async () => {
+          const { data: retryData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
+          if (retryData) {
+            setProfile(retryData);
+          }
+        }, 600);
       } else if (data) {
         setProfile(data);
       }
@@ -74,6 +88,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, []);
+
+  const signUp = async ({
+    email,
+    password,
+    fullName,
+    mobileNumber,
+  }: {
+    email: string;
+    password: string;
+    fullName: string;
+    mobileNumber: string;
+  }) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name: fullName, phone: mobileNumber },
+      },
+    });
+
+    if (data?.session) {
+      setSession(data.session);
+      setUser(data.user);
+      if (data.user) {
+        await fetchProfile(data.user.id);
+      }
+    }
+
+    return { data, error };
+  };
+
+  const signInWithPassword = async ({
+    email,
+    password,
+  }: {
+    email: string;
+    password: string;
+  }) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (data?.session) {
+      setSession(data.session);
+      setUser(data.user);
+      if (data.user) {
+        await fetchProfile(data.user.id);
+      }
+    }
+
+    return { data, error };
+  };
 
   const signInWithOtp = async (phone: string) => {
     // Format phone to E.164 if missing country code
@@ -135,6 +202,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         profile,
         loading,
+        signUp,
+        signInWithPassword,
         signInWithOtp,
         verifyOtp,
         signOut,

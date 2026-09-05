@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { CartItem, Product } from '../types/database';
 import { useToast } from './ToastContext';
+import { getProductAvailability } from '../utils/productAvailability';
 
 interface CartContextType {
   items: CartItem[];
@@ -17,7 +18,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 const CART_STORAGE_KEY = 'hotel_atithi_cart_v1';
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { success } = useToast();
+  const { success, error: toastError } = useToast();
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem(CART_STORAGE_KEY);
@@ -36,6 +37,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [items]);
 
   const addToCart = (product: Product, quantity: number = 1) => {
+    const avail = getProductAvailability(product);
+    if (!avail.isAvailable) {
+      toastError(
+        `Cannot add "${product.name}": ${
+          avail.warningMessage || avail.badgeText || 'Item is currently not available.'
+        }`
+      );
+      return;
+    }
+
     setItems((prev) => {
       const existingIndex = prev.findIndex((item) => item.product.id === product.id);
       if (existingIndex > -1) {

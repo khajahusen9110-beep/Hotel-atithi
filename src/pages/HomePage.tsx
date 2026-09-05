@@ -21,6 +21,7 @@ export const HomePage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'non-veg'>('all');
   const [loading, setLoading] = useState(true);
 
   // Debounced search state
@@ -37,6 +38,7 @@ export const HomePage: React.FC = () => {
   const handleTabChange = (tab: ProductType) => {
     setSearchParams({ tab });
     setSelectedCategory('all');
+    setVegFilter('all');
     setSearchInput('');
     setDebouncedQuery('');
   };
@@ -68,7 +70,7 @@ export const HomePage: React.FC = () => {
         if (!error && prodData) {
           setProducts(prodData);
         } else {
-          // If table is empty or error, use fallback sample pure veg catalog
+          // If table is empty or error, use fallback catalog
           setProducts(getFallbackProducts(activeTab, debouncedQuery));
         }
       } catch (e) {
@@ -83,9 +85,23 @@ export const HomePage: React.FC = () => {
   }, [activeTab, debouncedQuery]);
 
   const filteredProducts = useMemo(() => {
-    if (selectedCategory === 'all') return products;
-    return products.filter((p) => p.category_id === selectedCategory);
-  }, [products, selectedCategory]);
+    return products.filter((p) => {
+      // Category filter
+      if (selectedCategory !== 'all' && p.category_id !== selectedCategory) {
+        return false;
+      }
+      // Veg/Non-Veg filter (applied strictly on food tab)
+      if (activeTab === 'food') {
+        if (vegFilter === 'veg' && p.is_veg !== true) {
+          return false;
+        }
+        if (vegFilter === 'non-veg' && p.is_veg === true) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [products, selectedCategory, activeTab, vegFilter]);
 
   return (
     <div className="space-y-6 pb-12">
@@ -94,23 +110,23 @@ export const HomePage: React.FC = () => {
         <div className="relative z-10 max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 backdrop-blur-md text-[11px] font-bold text-amber-200">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            100% Pure Vegetarian Kitchen & Farm Direct
+            Fresh, Delicious & Delivered Fast
           </div>
 
           <h1 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
-            Authentic Pure Veg Dishes & Farm-Fresh Vegetables
+            Delicious Food & Farm-Fresh Produce, Delivered Fast
           </h1>
 
           <p className="text-amber-100 text-xs sm:text-sm font-medium leading-relaxed max-w-lg">
-            Cooked with unadulterated cold-pressed oils, organic spices, and vegetables harvested fresh this morning.
+            Enjoy authentic pure-veg & rich non-veg culinary specialties prepared fresh daily, alongside crisp farm-direct vegetables.
           </p>
 
           <div className="flex items-center gap-4 pt-2 text-xs font-semibold text-amber-200">
             <span className="flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-amber-300" /> Fast Delivery
+              <Zap className="w-4 h-4 text-amber-300" /> Fast Doorstep Delivery
             </span>
             <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-amber-300" /> Zero Preservatives
+              <ShieldCheck className="w-4 h-4 text-amber-300" /> Pure Veg & Non-Veg Available
             </span>
           </div>
         </div>
@@ -131,7 +147,7 @@ export const HomePage: React.FC = () => {
             }`}
           >
             <Utensils className={`w-4 h-4 ${activeTab === 'food' ? 'text-amber-600' : 'text-stone-400'}`} />
-            <span>Pure Veg Food</span>
+            <span>Food Menu</span>
           </button>
 
           <button
@@ -158,7 +174,7 @@ export const HomePage: React.FC = () => {
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder={
               activeTab === 'food'
-                ? 'Search paneer butter masala, dal tadka, rotis, biryani...'
+                ? 'Search biryani, paneer butter masala, chicken tikka, rotis...'
                 : 'Search farm tomatoes, palak, potatoes, onions, chillies...'
             }
             className="w-full pl-11 pr-10 py-3 rounded-2xl border border-stone-200 bg-white text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-xs transition-all"
@@ -176,6 +192,58 @@ export const HomePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Diet Filter Chips: "All" | "🟢 Veg Only" | "🔴 Non-Veg Only" (Food Menu tab only) */}
+      {activeTab === 'food' && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            id="diet-filter-all"
+            type="button"
+            onClick={() => setVegFilter('all')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+              vegFilter === 'all'
+                ? 'bg-stone-900 text-white shadow-xs'
+                : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+            }`}
+          >
+            All
+          </button>
+
+          <button
+            id="diet-filter-veg"
+            type="button"
+            onClick={() => setVegFilter('veg')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              vegFilter === 'veg'
+                ? 'bg-emerald-50 text-emerald-800 border-2 border-emerald-600 shadow-xs'
+                : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+            }`}
+          >
+            <span className="w-3.5 h-3.5 border border-emerald-600 rounded-[2px] flex items-center justify-center bg-white p-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+            </span>
+            <span>🟢 Veg Only</span>
+          </button>
+
+          <button
+            id="diet-filter-non-veg"
+            type="button"
+            onClick={() => setVegFilter('non-veg')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              vegFilter === 'non-veg'
+                ? 'bg-rose-50 text-rose-900 border-2 border-rose-700 shadow-xs'
+                : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+            }`}
+          >
+            <span className="w-3.5 h-3.5 border border-rose-700 rounded-[2px] flex items-center justify-center bg-white p-0.5">
+              <svg viewBox="0 0 10 10" className="w-2 h-2 fill-rose-700">
+                <polygon points="5,1 9,9 1,9" />
+              </svg>
+            </span>
+            <span>🔴 Non-Veg Only</span>
+          </button>
+        </div>
+      )}
 
       {/* Categories Horizontal Pills */}
       {categories.length > 0 && (
@@ -221,14 +289,15 @@ export const HomePage: React.FC = () => {
             No items found {debouncedQuery && `for "${debouncedQuery}"`}
           </h3>
           <p className="text-stone-500 text-xs">
-            Try searching for another dish or clear your filter to view our full pure veg menu.
+            Try searching for another dish or clear your dietary and category filters to view our full menu.
           </p>
-          {(debouncedQuery || selectedCategory !== 'all') && (
+          {(debouncedQuery || selectedCategory !== 'all' || vegFilter !== 'all') && (
             <button
               onClick={() => {
                 setSearchInput('');
                 setDebouncedQuery('');
                 setSelectedCategory('all');
+                setVegFilter('all');
               }}
               className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition-all"
             >
@@ -247,7 +316,7 @@ export const HomePage: React.FC = () => {
   );
 };
 
-// Comprehensive pure veg fallback catalog if Supabase table is freshly instantiated
+// Comprehensive fallback catalog with Pure Veg & Non-Veg options
 function getFallbackProducts(type: ProductType, search: string): Product[] {
   const foodItems: Product[] = [
     {
@@ -265,6 +334,19 @@ function getFallbackProducts(type: ProductType, search: string): Product[] {
     },
     {
       id: 'f2',
+      name: 'Chicken Dum Biryani Special',
+      description: 'Slow-cooked fragrant basmati rice layered with spiced tender chicken, saffron, mint and served with raita.',
+      price: 280,
+      type: 'food',
+      is_available: true,
+      image_url: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop&q=60',
+      calories: 550,
+      prep_time_minutes: 25,
+      unit: '500g',
+      is_veg: false,
+    },
+    {
+      id: 'f3',
       name: 'Dal Tadka Special',
       description: 'Yellow lentils slow-simmered with garlic, cumin, red chillies and pure desi ghee tempering.',
       price: 180,
@@ -277,7 +359,20 @@ function getFallbackProducts(type: ProductType, search: string): Product[] {
       is_veg: true,
     },
     {
-      id: 'f3',
+      id: 'f4',
+      name: 'Butter Chicken (Boneless)',
+      description: 'Charcoal-grilled tender chicken chunks simmered in a silky tomato, cream & butter makhani gravy.',
+      price: 320,
+      type: 'food',
+      is_available: true,
+      image_url: 'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=600&auto=format&fit=crop&q=60',
+      calories: 520,
+      prep_time_minutes: 22,
+      unit: '350ml',
+      is_veg: false,
+    },
+    {
+      id: 'f5',
       name: 'Veg Dum Biryani with Raita',
       description: 'Fragrant basmati rice layered with seasonal garden vegetables, mint, saffron, served with cooling boondi raita.',
       price: 220,
@@ -290,7 +385,20 @@ function getFallbackProducts(type: ProductType, search: string): Product[] {
       is_veg: true,
     },
     {
-      id: 'f4',
+      id: 'f6',
+      name: 'Mutton Rogan Josh',
+      description: 'Tender mutton cuts slow-braised in authentic Kashmiri spices, dried ginger and rich caramelized onion gravy.',
+      price: 390,
+      type: 'food',
+      is_available: true,
+      image_url: 'https://images.unsplash.com/photo-1545247181-516773cae754?w=600&auto=format&fit=crop&q=60',
+      calories: 580,
+      prep_time_minutes: 30,
+      unit: '350ml',
+      is_veg: false,
+    },
+    {
+      id: 'f7',
       name: 'Butter Naan (2 pcs)',
       description: 'Tandoor baked soft flatbread glazed with melted salted Amul butter.',
       price: 70,
@@ -303,7 +411,20 @@ function getFallbackProducts(type: ProductType, search: string): Product[] {
       is_veg: true,
     },
     {
-      id: 'f5',
+      id: 'f8',
+      name: 'Chicken Tikka Kebab (6 pcs)',
+      description: 'Succulent boneless chicken pieces marinated in yogurt and tandoori spices, char-grilled to perfection.',
+      price: 260,
+      type: 'food',
+      is_available: true,
+      image_url: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=600&auto=format&fit=crop&q=60',
+      calories: 340,
+      prep_time_minutes: 18,
+      unit: '6 pcs',
+      is_veg: false,
+    },
+    {
+      id: 'f9',
       name: 'Kaju Masala Gravy',
       description: 'Roasted cashew nuts simmered in an indulgent Mughlai style onion-tomato brown gravy.',
       price: 270,
@@ -316,7 +437,20 @@ function getFallbackProducts(type: ProductType, search: string): Product[] {
       is_veg: true,
     },
     {
-      id: 'f6',
+      id: 'f10',
+      name: 'Egg Curry Special (2 Eggs)',
+      description: 'Country boiled eggs pan-seared golden and simmered in a homestyle spiced onion-tomato curry.',
+      price: 160,
+      type: 'food',
+      is_available: true,
+      image_url: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=600&auto=format&fit=crop&q=60',
+      calories: 310,
+      prep_time_minutes: 15,
+      unit: '300ml',
+      is_veg: false,
+    },
+    {
+      id: 'f11',
       name: 'Jeera Rice Pure Ghee',
       description: 'Aromatic long-grain basmati cooked with cracked roasted cumin and fresh coriander.',
       price: 140,

@@ -13,7 +13,6 @@ import {
   Plus,
   Trash2,
   LogOut,
-  ShieldCheck,
   CheckCircle2,
   Loader2,
 } from 'lucide-react';

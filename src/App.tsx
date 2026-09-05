@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider } from './context/AuthContext';
 import { SettingsProvider } from './context/SettingsContext';
@@ -41,6 +41,8 @@ export const App: React.FC = () => {
                     <Route path="/reviews" element={<ReviewsPage />} />
                     <Route path="/auth" element={<AuthPage />} />
                     <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/admin" element={<Navigate to="/" replace />} />
+                    <Route path="/admin/*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </main>
 

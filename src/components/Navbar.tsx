@@ -24,12 +24,12 @@ export const Navbar: React.FC = () => {
               <span className="font-display font-bold text-lg text-stone-900 tracking-tight">
                 Hotel Atithi
               </span>
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                100% Veg
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800">
+                Veg & Non-Veg
               </span>
             </div>
             <p className="text-[11px] text-stone-500 font-medium -mt-0.5">
-              Pure Veg & Fresh Vegetables
+              Delicious Food, Delivered Fresh
             </p>
           </div>
         </Link>

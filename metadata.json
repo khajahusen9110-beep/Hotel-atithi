@@ -1,6 +1,6 @@
 {
   "name": "Hotel Atithi",
-  "description": "Hotel Atithi - Pure vegetarian dining restaurant & fresh farm-to-table vegetables delivery with real-time tracking, online payments and Cash on Delivery.",
+  "description": "Hotel Atithi - Fresh, delicious food and farm-fresh vegetables delivered fast with real-time tracking, online payments and Cash on Delivery.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

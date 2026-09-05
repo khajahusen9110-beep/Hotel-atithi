@@ -18,6 +18,9 @@ export interface Product {
   category_id?: string;
   image_url?: string;
   is_available: boolean;
+  stock?: number;
+  available_from?: string | null;
+  available_until?: string | null;
   unit?: string;
   weight_grams?: number;
   calories?: number;
@@ -75,13 +78,14 @@ export type PaymentStatus = 'pending' | 'paid' | 'failed';
 export type PaymentGateway = 'razorpay' | 'cod';
 
 export interface OrderItem {
-  id: string;
-  order_id: string;
+  id?: string;
+  order_id?: string;
   product_id?: string;
-  product_name: string;
-  price: number;
-  quantity: number;
-  total_price: number;
+  product_name?: string;
+  price?: number;
+  qty?: number;
+  quantity?: number;
+  total_price?: number;
   product?: Product;
 }
 
@@ -106,15 +110,20 @@ export interface Order {
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   subtotal: number;
+  discount_amount?: number;
   delivery_fee: number;
-  tax: number;
-  total_amount: number;
-  cooking_instructions?: string;
-  delivery_instructions?: string;
+  tax_amount?: number;
+  tax?: number;
+  total_amount?: number;
+  total?: number;
+  tax_percent?: number;
+  cooking_instructions?: string | null;
+  delivery_instructions?: string | null;
   address_id?: string;
   created_at: string;
   updated_at?: string;
   items?: OrderItem[];
+  order_items?: OrderItem[];
   address?: Address;
   review?: Review;
 }
@@ -130,19 +139,26 @@ export interface Profile {
 }
 
 export interface Settings {
-  id: string;
-  is_store_open: boolean;
-  opening_time: string;
-  closing_time: string;
+  id: string | boolean;
+  is_store_open?: boolean;
+  store_manually_closed?: boolean;
+  store_closed_message?: string;
+  opening_time?: string;
+  closing_time?: string;
   announcement?: string;
-  min_order_amount: number;
-  delivery_fee_base: number;
+  min_order_amount?: number;
+  delivery_fee_base?: number;
+  delivery_fee?: number;
   delivery_fee_per_km?: number;
-  free_delivery_threshold: number;
-  hotel_latitude: number;
-  hotel_longitude: number;
-  hotel_address: string;
-  hotel_phone: string;
+  free_delivery_threshold?: number;
+  free_delivery_above?: number;
+  hotel_latitude?: number;
+  hotel_longitude?: number;
+  hotel_name?: string;
+  hotel_address?: string;
+  hotel_phone?: string;
+  tax_percent?: number;
+  max_delivery_distance_km?: number;
   created_at?: string;
   updated_at?: string;
 }

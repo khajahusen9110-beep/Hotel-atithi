@@ -1,7 +1,8 @@
 import React from 'react';
 import { Product } from '../types/database';
 import { useCart } from '../context/CartContext';
-import { Plus, Minus, Clock, Flame } from 'lucide-react';
+import { Plus, Minus, Clock, Flame, AlertCircle } from 'lucide-react';
+import { getProductAvailability } from '../utils/productAvailability';
 
 interface ProductCardProps {
   product: Product;
@@ -10,6 +11,7 @@ interface ProductCardProps {
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { items, addToCart, updateQuantity } = useCart();
   const cartItem = items.find((item) => item.product.id === product.id);
+  const availability = getProductAvailability(product);
 
   const fallbackImage =
     product.type === 'food'
@@ -23,19 +25,38 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <img
           src={product.image_url || fallbackImage}
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className={`w-full h-full object-cover transition-transform duration-300 ${
+            availability.isAvailable ? 'group-hover:scale-105' : 'grayscale-30 brightness-90'
+          }`}
           loading="lazy"
           onError={(e) => {
             (e.target as HTMLImageElement).src = fallbackImage;
           }}
         />
 
-        {/* Pure Veg Badge */}
-        <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm p-1 rounded-md shadow-xs flex items-center justify-center">
-          <span className="w-3.5 h-3.5 border border-emerald-600 flex items-center justify-center p-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-          </span>
-        </div>
+        {/* FSSAI Standard Food Indicator (Food Menu items only) */}
+        {product.type === 'food' && (
+          <div
+            id={`food-badge-${product.id}`}
+            className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm p-1 rounded-md shadow-xs flex items-center justify-center"
+            title={product.is_veg !== false ? 'Pure Vegetarian' : 'Non-Vegetarian'}
+            aria-label={product.is_veg !== false ? 'Pure Vegetarian' : 'Non-Vegetarian'}
+          >
+            {product.is_veg !== false ? (
+              // Veg: Green square with green circle
+              <span className="w-3.5 h-3.5 border-2 border-emerald-600 rounded-[2px] flex items-center justify-center bg-white p-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+              </span>
+            ) : (
+              // Non-Veg: Red/Brown square with filled triangle
+              <span className="w-3.5 h-3.5 border-2 border-rose-700 rounded-[2px] flex items-center justify-center bg-white p-0.5">
+                <svg viewBox="0 0 10 10" className="w-2 h-2 fill-rose-700">
+                  <polygon points="5,1 9,9 1,9" />
+                </svg>
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Type / Unit Pill */}
         {product.unit && (
@@ -44,10 +65,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
         )}
 
-        {/* Out of Stock Overlay */}
-        {!product.is_available && (
-          <div className="absolute inset-0 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center text-white font-bold text-xs">
-            Currently Unavailable
+        {/* Serving Hours or Availability Overlay */}
+        {!availability.isAvailable && (
+          <div className="absolute inset-0 bg-stone-950/65 backdrop-blur-xs flex flex-col items-center justify-center text-center p-3 text-white">
+            <Clock className="w-5 h-5 text-amber-300 mb-1 animate-pulse" />
+            <span className="font-bold text-xs sm:text-sm">
+              {availability.servingWindowText ? 'Outside Serving Hours' : 'Currently Unavailable'}
+            </span>
+            {availability.servingWindowText && (
+              <span className="text-[11px] text-amber-200 font-medium mt-0.5">
+                Available: {availability.servingWindowText}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -67,8 +96,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </p>
           )}
 
-          {/* Meta specs (calories, prep time, weight) */}
-          <div className="flex items-center gap-2.5 mt-2.5 text-[11px] text-stone-500 flex-wrap">
+          {/* Meta specs (calories, prep time, weight, and serving hours) */}
+          <div className="flex items-center gap-2 mt-2.5 text-[11px] text-stone-500 flex-wrap">
+            {availability.servingWindowText && (
+              <span className="flex items-center gap-1 text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg font-medium text-[10px] border border-amber-200/60">
+                <Clock className="w-3 h-3 text-amber-600" />
+                {availability.servingWindowText}
+              </span>
+            )}
+
             {product.prep_time_minutes ? (
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-stone-400" />
@@ -101,8 +137,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
 
           <div>
-            {!product.is_available ? (
-              <span className="text-xs text-stone-400 font-medium">Out of Stock</span>
+            {!availability.isAvailable ? (
+              <div className="text-right">
+                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-100 text-stone-500 text-[11px] font-semibold border border-stone-200 cursor-not-allowed">
+                  <Clock className="w-3 h-3 text-stone-400" />
+                  <span>Unavailable</span>
+                </span>
+                {availability.formattedFrom && (
+                  <p className="text-[10px] text-stone-400 mt-0.5">
+                    Starts {availability.formattedFrom}
+                  </p>
+                )}
+              </div>
             ) : cartItem ? (
               <div className="flex items-center bg-amber-50 rounded-2xl border border-amber-200 px-1 py-0.5">
                 <button

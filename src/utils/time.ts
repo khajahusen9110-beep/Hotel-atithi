@@ -1,9 +1,9 @@
 export function isStoreCurrentlyOpen(
-  isStoreOpenSetting: boolean,
-  openingTime: string,
-  closingTime: string
+  isStoreOpenSetting: boolean | undefined = true,
+  openingTime?: string,
+  closingTime?: string
 ): boolean {
-  if (!isStoreOpenSetting) return false;
+  if (isStoreOpenSetting === false) return false;
   if (!openingTime || !closingTime) return true;
 
   try {

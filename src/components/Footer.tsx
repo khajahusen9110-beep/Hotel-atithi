@@ -18,11 +18,11 @@ export const Footer: React.FC = () => {
               <span className="font-display font-bold text-xl text-white">Hotel Atithi</span>
             </div>
             <p className="text-xs text-stone-400 leading-relaxed">
-              Serving genuine pure-vegetarian culinary delights & delivering fresh farm vegetables directly to your doorstep.
+              Serving delicious pure-veg and non-veg culinary delights & delivering fresh farm vegetables directly to your doorstep.
             </p>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/80 text-[11px] font-bold text-emerald-300">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              100% Pure Vegetarian Kitchen
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/60 border border-amber-800/80 text-[11px] font-bold text-amber-300">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              Pure Veg & Non-Veg Available
             </div>
           </div>
 

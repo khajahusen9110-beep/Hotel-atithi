@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Order, OrderStatus } from '../types/database';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { ReviewModal } from '../components/ReviewModal';
 import {
   CheckCircle2,
@@ -57,6 +58,7 @@ const STATUS_STEPS: { status: OrderStatus; label: string; icon: any; desc: strin
 export const OrderTrackingPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const { user } = useAuth();
+  const { settings } = useSettings();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +75,7 @@ export const OrderTrackingPage: React.FC = () => {
         .select(`
           *,
           address:addresses(*),
+          order_items(*),
           items:order_items(*),
           review:reviews(*)
         `)
@@ -80,9 +83,10 @@ export const OrderTrackingPage: React.FC = () => {
         .single();
 
       if (!error && data) {
-        // Flatten review if returned as array
+        // Flatten review and map order_items
         const processed = {
           ...data,
+          items: data.order_items || data.items || [],
           review: Array.isArray(data.review) ? data.review[0] : data.review,
         };
         setOrder(processed);
@@ -324,8 +328,17 @@ export const OrderTrackingPage: React.FC = () => {
             <p className="text-stone-400">Address saved with order record</p>
           )}
 
+          {order.cooking_instructions && (
+            <div className="mt-3 pt-2 border-t border-stone-100 text-[11px] text-amber-900 bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/50 flex items-start gap-1.5">
+              <Utensils className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-bold">Cooking Instructions:</strong> {order.cooking_instructions}
+              </div>
+            </div>
+          )}
+
           {order.delivery_instructions && (
-            <div className="mt-3 pt-2 border-t border-stone-100 text-[11px] text-amber-800 bg-amber-50/50 p-2 rounded-xl">
+            <div className="mt-2 text-[11px] text-stone-700 bg-stone-50 p-2 rounded-xl border border-stone-200/60">
               <strong>Delivery Note:</strong> {order.delivery_instructions}
             </div>
           )}
@@ -335,27 +348,63 @@ export const OrderTrackingPage: React.FC = () => {
         <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xs space-y-2">
           <h2 className="font-bold text-stone-900 text-xs flex items-center gap-1.5 pb-2 border-b border-stone-100">
             <CreditCard className="w-4 h-4 text-amber-600" />
-            <span>Payment Breakdown</span>
+            <span>Order Summary</span>
           </h2>
 
-          <div className="space-y-1.5 text-stone-600">
-            <div className="flex justify-between">
-              <span>Subtotal</span>
-              <span className="font-bold text-stone-900">₹{order.subtotal}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Delivery Fee</span>
-              <span>{order.delivery_fee === 0 ? 'FREE' : `₹${order.delivery_fee}`}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Tax</span>
-              <span>₹{order.tax}</span>
-            </div>
-            <div className="pt-1.5 border-t border-stone-100 flex justify-between font-bold text-stone-900 text-sm">
-              <span>Total Amount</span>
-              <span>₹{order.total_amount}</span>
-            </div>
-          </div>
+          {(() => {
+            const taxPercent = order.tax_percent ?? (settings?.tax_percent !== undefined ? Number(settings.tax_percent) : 5);
+            const taxAmount = order.tax_amount ?? order.tax ?? 0;
+            const discountAmount = order.discount_amount ?? 0;
+            const totalAmount = order.total ?? order.total_amount ?? 0;
+            const itemsList = order.items || order.order_items || [];
+
+            return (
+              <div className="space-y-2 text-stone-600">
+                {itemsList.length > 0 && (
+                  <div className="space-y-1 pb-2 border-b border-stone-100 text-xs">
+                    {itemsList.map((it, idx) => (
+                      <div key={idx} className="flex justify-between items-center text-stone-700">
+                        <span className="truncate max-w-[180px]">
+                          {it.product_name || 'Dish'} <strong className="text-stone-900">x{it.qty ?? it.quantity ?? 1}</strong>
+                        </span>
+                        <span className="font-medium text-stone-900">
+                          ₹{it.total_price || ((it.price || 0) * (it.qty ?? it.quantity ?? 1))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Items Subtotal</span>
+                  <span className="font-bold text-stone-900">₹{order.subtotal}</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-semibold">
+                    <span>Discount</span>
+                    <span>-₹{discountAmount}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>GST ({taxPercent}%)</span>
+                  <span className="font-bold text-stone-900">₹{taxAmount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Delivery Charge</span>
+                  <span>
+                    {order.delivery_fee === 0 ? (
+                      <span className="text-emerald-600 font-bold">FREE</span>
+                    ) : (
+                      <span className="font-bold text-stone-900">₹{order.delivery_fee}</span>
+                    )}
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-stone-100 flex justify-between font-bold text-stone-900 text-sm">
+                  <span>Total Amount</span>
+                  <span>₹{totalAmount}</span>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="pt-3 border-t border-stone-100 space-y-2 text-xs">
             <div className="flex items-center justify-between">
