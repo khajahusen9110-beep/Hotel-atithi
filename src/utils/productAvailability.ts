@@ -215,3 +215,29 @@ export function formatAvailabilityErrorMessage(rawMessage?: string | null): stri
 
   return rawMessage;
 }
+
+/**
+ * Get current day of week (0 for Sunday, 1 for Monday, ..., 6 for Saturday) in IST.
+ */
+export function getCurrentDayOfWeekIST(): number {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+    });
+    const weekday = formatter.format(new Date()).toLowerCase();
+    const map: Record<string, number> = {
+      sun: 0,
+      mon: 1,
+      tue: 2,
+      wed: 3,
+      thu: 4,
+      fri: 5,
+      sat: 6,
+    };
+    return map[weekday.slice(0, 3)] ?? new Date().getDay();
+  } catch {
+    return new Date().getDay();
+  }
+}
+

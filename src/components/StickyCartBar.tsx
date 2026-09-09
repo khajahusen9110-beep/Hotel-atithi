@@ -15,7 +15,7 @@ export const StickyCartBar: React.FC = () => {
     <div className="fixed bottom-16 md:bottom-6 left-4 right-4 z-40 max-w-md mx-auto">
       <Link
         to="/cart"
-        className="flex items-center justify-between p-3.5 px-4 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white shadow-xl shadow-amber-600/25 transition-all transform active:scale-98"
+        className="flex items-center justify-between p-3.5 px-4 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white shadow-xl shadow-orange-600/25 transition-all transform active:scale-98"
       >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-bold text-xs">
@@ -25,7 +25,7 @@ export const StickyCartBar: React.FC = () => {
             <div className="text-xs font-bold leading-tight">
               {itemCount} {itemCount === 1 ? 'item' : 'items'} in cart
             </div>
-            <div className="text-[11px] text-amber-100 font-medium">
+            <div className="text-[11px] text-orange-100 font-medium">
               Subtotal: ₹{subtotal}
             </div>
           </div>

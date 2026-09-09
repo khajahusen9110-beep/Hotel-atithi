@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { CartItem, Product } from '../types/database';
 import { useToast } from './ToastContext';
 import { getProductAvailability } from '../utils/productAvailability';
+import { soundAndHaptics } from '../utils/soundAndHaptics';
 
 interface CartContextType {
   items: CartItem[];
@@ -39,6 +40,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addToCart = (product: Product, quantity: number = 1) => {
     const avail = getProductAvailability(product);
     if (!avail.isAvailable) {
+      soundAndHaptics.triggerHaptic('warning');
+      soundAndHaptics.playErrorSound();
       toastError(
         `Cannot add "${product.name}": ${
           avail.warningMessage || avail.badgeText || 'Item is currently not available.'
@@ -46,6 +49,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
       return;
     }
+
+    soundAndHaptics.triggerHaptic('pop');
+    soundAndHaptics.playAddToCartSound();
 
     setItems((prev) => {
       const existingIndex = prev.findIndex((item) => item.product.id === product.id);
@@ -61,6 +67,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const removeFromCart = (productId: string) => {
+    soundAndHaptics.triggerHaptic('light');
+    soundAndHaptics.playRemoveSound();
     setItems((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
@@ -69,6 +77,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       removeFromCart(productId);
       return;
     }
+
+    soundAndHaptics.triggerHaptic('light');
+    soundAndHaptics.playTapSound();
+
     setItems((prev) =>
       prev.map((item) =>
         item.product.id === productId ? { ...item, quantity } : item

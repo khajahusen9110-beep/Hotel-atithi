@@ -13,7 +13,8 @@ export const ReviewsPage: React.FC = () => {
         const { data, error } = await supabase
           .from('reviews')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(30);
 
         if (!error && data && data.length > 0) {
           setReviews(data);

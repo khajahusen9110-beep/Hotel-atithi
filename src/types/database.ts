@@ -5,8 +5,10 @@ export interface Category {
   name: string;
   type: ProductType;
   icon?: string;
+  image_url?: string | null;
   sort_order?: number;
   created_at?: string;
+  is_active?: boolean;
 }
 
 export interface Product {
@@ -136,6 +138,24 @@ export interface Profile {
   role?: 'customer' | 'admin';
   created_at?: string;
   updated_at?: string;
+}
+
+export interface StoreHours {
+  id?: string;
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_closed: boolean;
+}
+
+export interface ActiveOffer {
+  code: string;
+  description?: string;
+  discount_type: 'percent' | 'fixed';
+  discount_value: number;
+  max_discount_amount?: number | null;
+  min_order_amount?: number | null;
+  valid_until?: string | null;
 }
 
 export interface Settings {

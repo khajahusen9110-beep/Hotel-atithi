@@ -1,6 +1,6 @@
 {
   "name": "Hotel Atithi",
-  "description": "Hotel Atithi - Fresh, delicious food and farm-fresh vegetables delivered fast with real-time tracking, online payments and Cash on Delivery.",
+  "description": "Order fresh, hot, and delicious food online from Hotel Atithi, Sindhanur (Raichur). Fast delivery for Chicken Biryani, Mutton, Tandoori, Chinese, and Pure Veg meals.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

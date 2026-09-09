@@ -1,20 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AddressFormData } from '../types/database';
-import { AddressMapPicker } from './AddressMapPicker';
-import { User, Phone, MapPin, Building, Home, Briefcase, Tag, Check } from 'lucide-react';
+import { AddressMapPicker, AutoDetectedAddress } from './AddressMapPicker';
+import { User, Phone, MapPin, Building, Home, Briefcase, Tag, Check, Sparkles } from 'lucide-react';
+import { soundAndHaptics } from '../utils/soundAndHaptics';
 
 interface AddressFormProps {
-  initialData?: Partial<AddressFormData>;
+  initialData?: Partial<AddressFormData> & { id?: string };
   onSubmit: (data: AddressFormData) => Promise<void> | void;
   onCancel?: () => void;
   submitLabel?: string;
+  isEdit?: boolean;
 }
 
 export const AddressForm: React.FC<AddressFormProps> = ({
   initialData,
   onSubmit,
   onCancel,
-  submitLabel = 'Save Address',
+  submitLabel,
+  isEdit = false,
 }) => {
   const [formData, setFormData] = useState<AddressFormData>({
     recipient_name: initialData?.recipient_name || '',
@@ -22,15 +25,65 @@ export const AddressForm: React.FC<AddressFormProps> = ({
     label: initialData?.label || 'Home',
     full_address: initialData?.full_address || '',
     landmark: initialData?.landmark || '',
-    city: initialData?.city || 'Pune',
+    city: initialData?.city || 'Raichur',
     pincode: initialData?.pincode || '',
-    latitude: initialData?.latitude || 18.5204,
-    longitude: initialData?.longitude || 73.8567,
+    latitude: initialData?.latitude || 15.3647,
+    longitude: initialData?.longitude || 75.1240,
     is_default: initialData?.is_default ?? true,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoFilledNotice, setAutoFilledNotice] = useState<boolean>(false);
+
+  // Sync state if initialData changes
+  useEffect(() => {
+    if (initialData) {
+      setFormData((prev) => ({
+        ...prev,
+        recipient_name: initialData.recipient_name ?? prev.recipient_name,
+        phone: initialData.phone ?? prev.phone,
+        label: initialData.label ?? prev.label,
+        full_address: initialData.full_address ?? prev.full_address,
+        landmark: initialData.landmark ?? prev.landmark,
+        city: initialData.city ?? prev.city,
+        pincode: initialData.pincode ?? prev.pincode,
+        latitude: initialData.latitude ?? prev.latitude,
+        longitude: initialData.longitude ?? prev.longitude,
+        is_default: initialData.is_default ?? prev.is_default,
+      }));
+    }
+  }, [initialData]);
+
+  const handleLocationSelect = (lat: number, lng: number, autoFill?: AutoDetectedAddress) => {
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        latitude: lat,
+        longitude: lng,
+      };
+
+      if (autoFill) {
+        // If address field is empty OR in Add New mode, auto-populate detected details
+        if (autoFill.full_address && (!prev.full_address || !isEdit)) {
+          updated.full_address = autoFill.full_address;
+        }
+        if (autoFill.city) {
+          updated.city = autoFill.city;
+        }
+        if (autoFill.pincode) {
+          updated.pincode = autoFill.pincode;
+        }
+        if (autoFill.landmark && !prev.landmark) {
+          updated.landmark = autoFill.landmark;
+        }
+        setAutoFilledNotice(true);
+        setTimeout(() => setAutoFilledNotice(false), 5000);
+      }
+
+      return updated;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,34 +91,47 @@ export const AddressForm: React.FC<AddressFormProps> = ({
 
     if (!formData.recipient_name.trim()) {
       setError('Please provide recipient name');
+      soundAndHaptics.triggerHaptic('warning');
+      soundAndHaptics.playErrorSound();
       return;
     }
 
     const cleanPhone = formData.phone.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
-      setError('Please provide a valid 10-digit phone number');
+      setError('Please provide a valid 10-digit mobile phone number');
+      soundAndHaptics.triggerHaptic('warning');
+      soundAndHaptics.playErrorSound();
       return;
     }
 
-    if (!formData.full_address.trim() || formData.full_address.length < 5) {
+    if (!formData.full_address.trim() || formData.full_address.length < 4) {
       setError('Please enter complete street or flat details');
+      soundAndHaptics.triggerHaptic('warning');
+      soundAndHaptics.playErrorSound();
       return;
     }
 
     if (!formData.pincode.trim() || formData.pincode.length < 6) {
       setError('Please provide a valid 6-digit postal pincode');
+      soundAndHaptics.triggerHaptic('warning');
+      soundAndHaptics.playErrorSound();
       return;
     }
 
     setIsSubmitting(true);
     try {
       await onSubmit(formData);
+      soundAndHaptics.triggerHaptic('pop');
     } catch (err: any) {
       setError(err?.message || 'Failed to save address');
+      soundAndHaptics.triggerHaptic('warning');
+      soundAndHaptics.playErrorSound();
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const effectiveSubmitLabel = submitLabel || (isEdit ? 'Update Address' : 'Save Address');
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-xs">
@@ -92,8 +158,12 @@ export const AddressForm: React.FC<AddressFormProps> = ({
               <button
                 key={item.label}
                 type="button"
-                onClick={() => setFormData({ ...formData, label: item.label })}
-                className={`px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 transition-all ${
+                onClick={() => {
+                  setFormData({ ...formData, label: item.label });
+                  soundAndHaptics.triggerHaptic('light');
+                  soundAndHaptics.playTapSound();
+                }}
+                className={`px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
                     : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
@@ -149,13 +219,22 @@ export const AddressForm: React.FC<AddressFormProps> = ({
 
       {/* Map Location Picker */}
       <div>
-        <label className="block text-stone-600 font-bold mb-1.5">
-          Pin Location on Map (Required for precise delivery)
-        </label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-stone-600 font-bold">
+            Delivery Location on Map *
+          </label>
+          {autoFilledNotice && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 animate-fade-in">
+              <Sparkles className="w-3 h-3 text-amber-600" />
+              <span>Address fields filled from map (editable below)</span>
+            </span>
+          )}
+        </div>
         <AddressMapPicker
           initialLat={formData.latitude}
           initialLng={formData.longitude}
-          onLocationSelect={(lat, lng) => setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }))}
+          isEdit={isEdit}
+          onLocationSelect={handleLocationSelect}
         />
       </div>
 
@@ -172,7 +251,7 @@ export const AddressForm: React.FC<AddressFormProps> = ({
             rows={2}
             value={formData.full_address}
             onChange={(e) => setFormData({ ...formData, full_address: e.target.value })}
-            placeholder="e.g. Flat 402, Shanti Heights, Shivaji Chowk, MG Road"
+            placeholder="e.g. Flat 402, Shanti Heights, Station Road, Near Gandhi Chowk"
             className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium resize-none"
           />
         </div>
@@ -189,7 +268,7 @@ export const AddressForm: React.FC<AddressFormProps> = ({
             type="text"
             value={formData.landmark}
             onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
-            placeholder="Near Metro Station"
+            placeholder="Near City Hospital / Bus Stand"
             className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
           />
         </div>
@@ -204,7 +283,7 @@ export const AddressForm: React.FC<AddressFormProps> = ({
             required
             value={formData.city}
             onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-            placeholder="Pune"
+            placeholder="Raichur"
             className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
           />
         </div>
@@ -220,7 +299,7 @@ export const AddressForm: React.FC<AddressFormProps> = ({
             maxLength={6}
             value={formData.pincode}
             onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, '') })}
-            placeholder="411001"
+            placeholder="584101"
             className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
           />
         </div>
@@ -233,19 +312,19 @@ export const AddressForm: React.FC<AddressFormProps> = ({
           type="checkbox"
           checked={formData.is_default}
           onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
-          className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4"
+          className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
         />
         <span className="text-stone-700 font-medium">Make this my primary delivery address</span>
       </label>
 
-      {/* Buttons */}
+      {/* Action Buttons */}
       <div className="flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 font-bold hover:bg-stone-100 transition-colors"
+            className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 font-bold hover:bg-stone-100 transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -253,10 +332,10 @@ export const AddressForm: React.FC<AddressFormProps> = ({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+          className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-95"
         >
           <Check className="w-3.5 h-3.5" />
-          <span>{isSubmitting ? 'Saving...' : submitLabel}</span>
+          <span>{isSubmitting ? 'Saving...' : effectiveSubmitLabel}</span>
         </button>
       </div>
     </form>

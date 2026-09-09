@@ -150,20 +150,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 )}
               </div>
             ) : cartItem ? (
-              <div className="flex items-center bg-amber-50 rounded-2xl border border-amber-200 px-1 py-0.5">
+              <div className="flex items-center bg-orange-50 rounded-2xl border border-orange-200 px-1 py-0.5">
                 <button
                   onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}
-                  className="w-7 h-7 rounded-xl bg-white hover:bg-amber-100 text-amber-900 flex items-center justify-center transition-colors shadow-xs"
+                  className="w-7 h-7 rounded-xl bg-white hover:bg-orange-100 text-orange-900 flex items-center justify-center transition-colors shadow-xs"
                   aria-label="Decrease quantity"
                 >
                   <Minus className="w-3 h-3" />
                 </button>
-                <span className="px-3 text-xs font-bold text-amber-950">
+                <span className="px-3 text-xs font-bold text-orange-950">
                   {cartItem.quantity}
                 </span>
                 <button
                   onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}
-                  className="w-7 h-7 rounded-xl bg-white hover:bg-amber-100 text-amber-900 flex items-center justify-center transition-colors shadow-xs"
+                  className="w-7 h-7 rounded-xl bg-white hover:bg-orange-100 text-orange-900 flex items-center justify-center transition-colors shadow-xs"
                   aria-label="Increase quantity"
                 >
                   <Plus className="w-3 h-3" />
@@ -172,10 +172,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             ) : (
               <button
                 onClick={() => addToCart(product)}
-                className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
+                className="px-4 py-2 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-extrabold uppercase tracking-wide transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add</span>
+                <span>ADD</span>
               </button>
             )}
           </div>

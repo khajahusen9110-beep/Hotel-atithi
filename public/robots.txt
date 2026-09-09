@@ -1,0 +1,9 @@
+# Robots.txt for Hotel Atithi
+User-agent: *
+Allow: /
+Disallow: /checkout
+Disallow: /orders/
+Disallow: /profile
+
+# Sitemap location
+Sitemap: https://hotel-atithi.com/sitemap.xml

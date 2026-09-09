@@ -37,7 +37,8 @@ export const OrderHistoryPage: React.FC = () => {
           .from('orders')
           .select('*, order_items(*)')
           .eq('customer_id', user.id)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(25);
 
         if (!error && data) {
           // Filter out any incomplete or orphan orders with 0 items and ₹0 total

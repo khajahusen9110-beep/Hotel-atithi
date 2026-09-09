@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Settings } from '../types/database';
-import { isStoreCurrentlyOpen } from '../utils/time';
+import { Settings, StoreHours } from '../types/database';
+import { formatTime12Hour, getCurrentDayOfWeekIST } from '../utils/productAvailability';
 
 interface SettingsContextType {
   settings: Settings | null;
   loading: boolean;
   isOpen: boolean;
+  todayHoursText: string;
+  todayStoreHours: StoreHours | null;
   refetchSettings: () => Promise<void>;
 }
 
@@ -35,9 +37,13 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [loading, setLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState<boolean>(true);
+  const [todayStoreHours, setTodayStoreHours] = useState<StoreHours | null>(null);
+  const [todayHoursText, setTodayHoursText] = useState<string>('Hours: 7:00 AM - 10:00 PM');
 
   const fetchSettings = async () => {
     try {
+      // 1. Fetch settings row
       const { data, error } = await supabase
         .from('settings')
         .select('*')
@@ -46,6 +52,48 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (!error && data) {
         setSettings(data);
+      }
+
+      // 2. Query is_store_open_now() RPC
+      try {
+        const { data: openRpc, error: rpcError } = await supabase.rpc('is_store_open_now');
+        if (!rpcError && typeof openRpc === 'boolean') {
+          setIsOpen(openRpc);
+        } else if (data) {
+          setIsOpen(data.is_store_open ?? true);
+        }
+      } catch (rpcErr) {
+        console.warn('is_store_open_now RPC error:', rpcErr);
+        if (data) setIsOpen(data.is_store_open ?? true);
+      }
+
+      // 3. Query store_hours table for today's hours
+      try {
+        const { data: hoursData, error: hoursError } = await supabase
+          .from('store_hours')
+          .select('*');
+
+        if (!hoursError && hoursData && hoursData.length > 0) {
+          const currentDay = getCurrentDayOfWeekIST();
+          const today = hoursData.find((h: StoreHours) => h.day_of_week === currentDay);
+          if (today) {
+            setTodayStoreHours(today);
+            if (today.is_closed) {
+              setTodayHoursText('Closed Today');
+              setIsOpen(false);
+            } else {
+              const openFmt = formatTime12Hour(today.open_time);
+              const closeFmt = formatTime12Hour(today.close_time);
+              setTodayHoursText(`Hours: ${openFmt} - ${closeFmt}`);
+            }
+          }
+        } else if (data) {
+          const openFmt = formatTime12Hour(data.opening_time || '07:00:00');
+          const closeFmt = formatTime12Hour(data.closing_time || '22:00:00');
+          setTodayHoursText(`Hours: ${openFmt} - ${closeFmt}`);
+        }
+      } catch (hoursErr) {
+        console.warn('store_hours table query error:', hoursErr);
       }
     } catch (e) {
       console.warn('Error loading settings from DB, using fallback defaults:', e);
@@ -56,13 +104,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     fetchSettings();
+    // Refresh status every 2 minutes
+    const interval = setInterval(fetchSettings, 120000);
+    return () => clearInterval(interval);
   }, []);
-
-  const isOpen = isStoreCurrentlyOpen(
-    settings?.is_store_open ?? true,
-    settings?.opening_time || '08:00',
-    settings?.closing_time || '23:00'
-  );
 
   return (
     <SettingsContext.Provider
@@ -70,6 +115,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         settings,
         loading,
         isOpen,
+        todayHoursText,
+        todayStoreHours,
         refetchSettings: fetchSettings,
       }}
     >

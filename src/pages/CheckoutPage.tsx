@@ -10,6 +10,7 @@ import { AddressForm } from '../components/AddressForm';
 import {
   MapPin,
   Plus,
+  Pencil,
   CreditCard,
   Banknote,
   ShieldCheck,
@@ -25,6 +26,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { soundAndHaptics } from '../utils/soundAndHaptics';
 import {
   getProductAvailability,
   checkProductOrderableRPC,
@@ -42,6 +44,7 @@ export const CheckoutPage: React.FC = () => {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
   const [paymentGateway, setPaymentGateway] = useState<PaymentGateway>('cod');
@@ -182,31 +185,57 @@ export const CheckoutPage: React.FC = () => {
           .eq('customer_id', user.id);
       }
 
-      const { data, error } = await supabase
-        .from('addresses')
-        .insert({
-          customer_id: user.id,
-          recipient_name: formData.recipient_name,
-          phone: formData.phone,
-          label: formData.label,
-          full_address: formData.full_address,
-          landmark: formData.landmark,
-          city: formData.city,
-          pincode: formData.pincode,
-          latitude: formData.latitude,
-          longitude: formData.longitude,
-          is_default: formData.is_default,
-        })
-        .select()
-        .single();
+      if (editingAddress) {
+        const { error } = await supabase
+          .from('addresses')
+          .update({
+            recipient_name: formData.recipient_name,
+            phone: formData.phone,
+            label: formData.label,
+            full_address: formData.full_address,
+            landmark: formData.landmark,
+            city: formData.city,
+            pincode: formData.pincode,
+            latitude: formData.latitude,
+            longitude: formData.longitude,
+            is_default: formData.is_default,
+          })
+          .eq('id', editingAddress.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      success('Delivery address saved');
-      setIsAddingAddress(false);
-      await fetchAddresses();
-      if (data) {
-        setSelectedAddressId(data.id);
+        success('Delivery address updated');
+        const editedId = editingAddress.id;
+        setEditingAddress(null);
+        await fetchAddresses();
+        setSelectedAddressId(editedId);
+      } else {
+        const { data, error } = await supabase
+          .from('addresses')
+          .insert({
+            customer_id: user.id,
+            recipient_name: formData.recipient_name,
+            phone: formData.phone,
+            label: formData.label,
+            full_address: formData.full_address,
+            landmark: formData.landmark,
+            city: formData.city,
+            pincode: formData.pincode,
+            latitude: formData.latitude,
+            longitude: formData.longitude,
+            is_default: formData.is_default,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        success('Delivery address saved');
+        setIsAddingAddress(false);
+        await fetchAddresses();
+        if (data) {
+          setSelectedAddressId(data.id);
+        }
       }
     } catch (err: any) {
       toastError(err.message || 'Failed to save address');
@@ -364,6 +393,8 @@ export const CheckoutPage: React.FC = () => {
         clearCart();
         sessionStorage.removeItem('hotel_atithi_order_notes');
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+        soundAndHaptics.playSuccessSound();
+        soundAndHaptics.triggerHaptic('success');
         success('Order placed successfully via Cash on Delivery!');
         navigate(`/order/${confirmedOrder.id}`);
         return;
@@ -443,6 +474,8 @@ export const CheckoutPage: React.FC = () => {
             clearCart();
             sessionStorage.removeItem('hotel_atithi_order_notes');
             confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
+            soundAndHaptics.playSuccessSound();
+            soundAndHaptics.triggerHaptic('success');
             success('Payment received! Order confirmed.');
             navigate(`/order/${confirmedOrder.id}`);
           },
@@ -518,11 +551,14 @@ export const CheckoutPage: React.FC = () => {
                 <MapPin className="w-4 h-4 text-amber-600" />
                 Delivery Address
               </h2>
-              {!isAddingAddress && addresses.length > 0 && (
+              {!isAddingAddress && !editingAddress && addresses.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setIsAddingAddress(true)}
-                  className="text-amber-700 font-bold hover:underline flex items-center gap-1"
+                  onClick={() => {
+                    setEditingAddress(null);
+                    setIsAddingAddress(true);
+                  }}
+                  className="text-amber-700 font-bold hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add New</span>
@@ -535,12 +571,30 @@ export const CheckoutPage: React.FC = () => {
                 <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
                 <span>Loading your addresses...</span>
               </div>
-            ) : isAddingAddress ? (
+            ) : isAddingAddress || editingAddress ? (
               <div className="bg-stone-50/70 p-4 rounded-2xl border border-stone-200">
-                <h3 className="font-bold text-stone-900 mb-3">Add New Delivery Address</h3>
+                <h3 className="font-bold text-stone-900 mb-3 flex items-center gap-1.5">
+                  {editingAddress ? (
+                    <>
+                      <Pencil className="w-4 h-4 text-amber-600" />
+                      <span>Edit Delivery Address ({editingAddress.label})</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 text-amber-600" />
+                      <span>Add New Delivery Address</span>
+                    </>
+                  )}
+                </h3>
                 <AddressForm
+                  initialData={editingAddress || undefined}
+                  isEdit={!!editingAddress}
+                  submitLabel={editingAddress ? 'Update Address' : 'Save Address'}
                   onSubmit={handleSaveNewAddress}
-                  onCancel={addresses.length > 0 ? () => setIsAddingAddress(false) : undefined}
+                  onCancel={() => {
+                    setIsAddingAddress(false);
+                    setEditingAddress(null);
+                  }}
                 />
               </div>
             ) : (
@@ -561,9 +615,24 @@ export const CheckoutPage: React.FC = () => {
                         <span className="font-bold text-stone-900 text-[11px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-white border border-stone-200">
                           {addr.label}
                         </span>
-                        {isSelected && (
-                          <CheckCircle2 className="w-4 h-4 text-amber-600" />
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsAddingAddress(false);
+                              setEditingAddress(addr);
+                            }}
+                            className="p-1 rounded-md text-stone-500 hover:text-amber-700 hover:bg-white/80 transition-colors flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                            title="Edit this address"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                          {isSelected && (
+                            <CheckCircle2 className="w-4 h-4 text-amber-600" />
+                          )}
+                        </div>
                       </div>
 
                       <div className="mt-2 text-stone-700 space-y-1">

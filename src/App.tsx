@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider } from './context/AuthContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { CartProvider } from './context/CartContext';
+import { soundAndHaptics } from './utils/soundAndHaptics';
 
 import { StoreStatusBanner } from './components/StoreStatusBanner';
 import { Navbar } from './components/Navbar';
@@ -21,13 +22,18 @@ import { AuthPage } from './pages/AuthPage';
 import { ProfilePage } from './pages/ProfilePage';
 
 export const App: React.FC = () => {
+  useEffect(() => {
+    // Initialize global sound effects and haptic vibration for every click/tap in the app
+    soundAndHaptics.initGlobalListeners();
+  }, []);
+
   return (
     <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
           <SettingsProvider>
             <CartProvider>
-              <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900 font-sans selection:bg-amber-100 selection:text-amber-900">
+              <div className="min-h-screen flex flex-col bg-white text-stone-900 font-sans selection:bg-orange-100 selection:text-orange-900">
                 <StoreStatusBanner />
                 <Navbar />
 

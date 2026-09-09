@@ -1,12 +1,38 @@
 @import "tailwindcss";
 
 @layer base {
-  body {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  h1, h2, h3, .font-display {
-    font-family: 'Playfair Display', Georgia, serif;
+  body {
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.012em;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-display {
+    font-family: 'Outfit', 'Poppins', sans-serif;
+    letter-spacing: -0.025em;
+  }
+
+  /* Smooth press interaction across all buttons and links */
+  button:not(:disabled),
+  a,
+  [role="button"]:not([aria-disabled="true"]),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled) {
+    transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.15s ease, opacity 0.15s ease;
+  }
+
+  button:not(:disabled):active,
+  a:active,
+  [role="button"]:not([aria-disabled="true"]):active,
+  input[type="submit"]:not(:disabled):active,
+  input[type="button"]:not(:disabled):active {
+    transform: scale(0.96);
   }
 }
 
