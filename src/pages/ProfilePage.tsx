@@ -280,7 +280,7 @@ export const ProfilePage: React.FC = () => {
                   </div>
                   <div>
                     <p className="font-bold text-stone-900 text-xs">Sound Effects</p>
-                    <p className="text-[10px] text-stone-400">Pleasant clicks & chimes</p>
+                    <p className="text-[10px] text-stone-400">Chimes for cart updates & orders</p>
                   </div>
                 </div>
                 <button
@@ -312,7 +312,7 @@ export const ProfilePage: React.FC = () => {
                   </div>
                   <div>
                     <p className="font-bold text-stone-900 text-xs">Vibration / Haptics</p>
-                    <p className="text-[10px] text-stone-400">Tactile buzz on tap</p>
+                    <p className="text-[10px] text-stone-400">Vibrate when adding to cart</p>
                   </div>
                 </div>
                 <button
