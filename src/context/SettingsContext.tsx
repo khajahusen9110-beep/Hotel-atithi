@@ -9,6 +9,8 @@ interface SettingsContextType {
   isOpen: boolean;
   todayHoursText: string;
   todayStoreHours: StoreHours | null;
+  /** All 7 days, for structured data (empty until loaded) */
+  storeHours: StoreHours[];
   refetchSettings: () => Promise<void>;
 }
 
@@ -17,17 +19,19 @@ const defaultSettings: Settings = {
   is_store_open: true,
   opening_time: '07:00',
   closing_time: '23:00',
-  announcement: 'Welcome to Hotel Atithi! Delicious pure veg & non-veg dining delivered fast.',
+  announcement: 'Welcome to Hotel Atithi! Delicious veg & non-veg food delivered fast.',
   min_order_amount: 149,
   delivery_fee_base: 0,
   delivery_fee: 0,
   delivery_fee_per_km: 0,
   free_delivery_threshold: 500,
   free_delivery_above: 500,
-  hotel_latitude: 15.806135,
-  hotel_longitude: 76.765092,
+  // Shown only until the admin settings load; the real values come from the database
+  hotel_latitude: 16.2111455,
+  hotel_longitude: 77.3572712,
   hotel_name: 'Hotel Atithi',
-  hotel_address: 'NH150A, Bassapura, Sindhanur, Raichur, Karnataka 584128',
+  hotel_address: 'Raichur, Karnataka',
+  hotel_city: 'Raichur',
   hotel_phone: '',
   tax_percent: 0,
 };
@@ -39,6 +43,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState<boolean>(true);
   const [todayStoreHours, setTodayStoreHours] = useState<StoreHours | null>(null);
+  const [storeHours, setStoreHours] = useState<StoreHours[]>([]);
   const [todayHoursText, setTodayHoursText] = useState<string>('Hours: 7:00 AM - 11:00 PM');
 
   const fetchSettings = async () => {
@@ -71,6 +76,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } else {
         const { data: hoursData, error: hoursError } = hoursRes.value;
         if (!hoursError && hoursData && hoursData.length > 0) {
+          setStoreHours(hoursData as StoreHours[]);
           const currentDay = getCurrentDayOfWeekIST();
           const today = hoursData.find((h: StoreHours) => h.day_of_week === currentDay);
           if (today) {
@@ -112,6 +118,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isOpen,
         todayHoursText,
         todayStoreHours,
+        storeHours,
         refetchSettings: fetchSettings,
       }}
     >

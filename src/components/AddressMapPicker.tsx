@@ -28,8 +28,9 @@ export const AddressMapPicker: React.FC<AddressMapPickerProps> = ({
   autoDetectOnMount,
 }) => {
   const { settings } = useSettings();
-  const hotelLat = settings?.hotel_latitude || 15.3647;
-  const hotelLng = settings?.hotel_longitude || 75.1240;
+  // Restaurant location from the admin settings (Raichur until they load)
+  const hotelLat = Number(settings?.hotel_latitude) || 16.2111455;
+  const hotelLng = Number(settings?.hotel_longitude) || 77.3572712;
 
   // Use provided coordinates, or fallback to hotel coordinates
   const startingLat = initialLat || hotelLat;
@@ -120,7 +121,8 @@ export const AddressMapPicker: React.FC<AddressMapPickerProps> = ({
         setCoords({ lat, lng });
 
         if (mapInstanceRef.current && markerRef.current) {
-          mapInstanceRef.current.setView([lat, lng], 17);
+          // No animation: removing the map mid-zoom (e.g. the form closes) throws inside Leaflet
+          mapInstanceRef.current.setView([lat, lng], 17, { animate: false });
           markerRef.current.setLatLng([lat, lng]);
         }
 
@@ -136,7 +138,7 @@ export const AddressMapPicker: React.FC<AddressMapPickerProps> = ({
         // If permission is denied or error, center map on default hotel location without error alert
         if (!isEdit && (!initialLat || !initialLng)) {
           if (mapInstanceRef.current && markerRef.current) {
-            mapInstanceRef.current.setView([hotelLat, hotelLng], 15);
+            mapInstanceRef.current.setView([hotelLat, hotelLng], 15, { animate: false });
             markerRef.current.setLatLng([hotelLat, hotelLng]);
           }
           setCoords({ lat: hotelLat, lng: hotelLng });

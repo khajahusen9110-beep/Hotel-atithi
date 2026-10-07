@@ -8,6 +8,7 @@ const AddressMapPicker = lazy(() =>
 );
 import { User, Phone, MapPin, Building, Home, Briefcase, Tag, Check, Sparkles } from 'lucide-react';
 import { soundAndHaptics } from '../utils/soundAndHaptics';
+import { useSettings } from '../context/SettingsContext';
 
 interface AddressFormProps {
   initialData?: Partial<AddressFormData> & { id?: string };
@@ -24,16 +25,18 @@ export const AddressForm: React.FC<AddressFormProps> = ({
   submitLabel,
   isEdit = false,
 }) => {
+  // New addresses start in the restaurant's city, with the map centred on the restaurant (admin settings)
+  const { settings } = useSettings();
   const [formData, setFormData] = useState<AddressFormData>({
     recipient_name: initialData?.recipient_name || '',
     phone: initialData?.phone || '',
     label: initialData?.label || 'Home',
     full_address: initialData?.full_address || '',
     landmark: initialData?.landmark || '',
-    city: initialData?.city || 'Sindhanur',
+    city: initialData?.city || settings?.hotel_city?.trim() || 'Raichur',
     pincode: initialData?.pincode || '',
-    latitude: initialData?.latitude || 15.806135,
-    longitude: initialData?.longitude || 76.765092,
+    latitude: initialData?.latitude || Number(settings?.hotel_latitude) || 16.2111455,
+    longitude: initialData?.longitude || Number(settings?.hotel_longitude) || 77.3572712,
     is_default: initialData?.is_default ?? true,
   });
 

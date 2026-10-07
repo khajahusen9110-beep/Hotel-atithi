@@ -14,6 +14,7 @@ import { StickyCartBar } from './components/StickyCartBar';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ScrollToTop } from './components/ScrollToTop';
+import { SeoSync } from './components/SeoSync';
 import { PageLoader } from './components/PageLoader';
 
 // The menu is the landing page, so it ships in the main bundle; every other page
@@ -63,6 +64,7 @@ export const App: React.FC = () => {
       <ToastProvider>
         <AuthProvider>
           <SettingsProvider>
+            <SeoSync />
             <CartProvider>
               <div className="min-h-screen flex flex-col bg-white text-stone-900 font-sans selection:bg-orange-100 selection:text-orange-900">
                 <StoreStatusBanner />

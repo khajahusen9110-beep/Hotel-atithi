@@ -4,81 +4,64 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/app-favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hotel Atithi - Online Food Delivery in Sindhanur, Raichur | Biryani, Chinese & Tandoori</title>
-    <meta name="description" content="Order fresh, hot, and delicious food online from Hotel Atithi, Sindhanur (Raichur). Fast delivery for Chicken Biryani, Mutton, Tandoori, Chinese, and Pure Veg meals." />
-    <meta name="keywords" content="Hotel Atithi, Hotel Atithi Sindhanur, food delivery Sindhanur, Raichur restaurant, order biryani Sindhanur, online food delivery Raichur, Hotel Atithi Bassapura, Sindhanuru restaurant" />
+    <title>Hotel Atithi Raichur - Order Food Online | Biryani, Tandoori &amp; Chinese Delivery</title>
+    <meta name="description" content="Order food online from Hotel Atithi, Raichur. Hot Chicken &amp; Mutton Biryani, Tandoori, Chinese and Veg meals delivered to your door. No delivery charge, Cash on Delivery." />
+    <meta name="keywords" content="Hotel Atithi, Hotel Atithi Raichur, food delivery Raichur, order food online Raichur, biryani Raichur, best restaurant in Raichur, Raichur restaurant, tandoori Raichur, Chinese food Raichur, home delivery Raichur" />
     <meta name="author" content="Hotel Atithi" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="theme-color" content="#f97316" />
+    <link rel="canonical" href="https://hotel-atithi.com/" />
 
-    <!-- Open Graph / Facebook / WhatsApp -->
+    <!-- Open Graph / Facebook / WhatsApp (these crawlers don't run JavaScript) -->
     <meta property="og:type" content="restaurant.restaurant" />
     <meta property="og:site_name" content="Hotel Atithi" />
-    <meta property="og:title" content="Hotel Atithi - Online Food Delivery in Sindhanur, Raichur" />
-    <meta property="og:description" content="Order fresh, hot, and delicious food online from Hotel Atithi, Sindhanur. Fast home delivery for Biryani, Tandoori, Chinese, and Pure Veg dishes." />
+    <meta property="og:url" content="https://hotel-atithi.com/" />
+    <meta property="og:title" content="Hotel Atithi Raichur - Order Food Online" />
+    <meta property="og:description" content="Hot Biryani, Tandoori, Chinese and Veg meals from Hotel Atithi, Raichur. No delivery charge, Cash on Delivery." />
     <meta property="og:image" content="https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=1200&auto=format&fit=crop&q=80" />
     <meta property="og:locale" content="en_IN" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Hotel Atithi - Online Food Delivery in Sindhanur, Raichur" />
-    <meta name="twitter:description" content="Order fresh, hot, and delicious food online from Hotel Atithi, Sindhanur. Fast delivery for Biryani, Chinese, and Tandoori." />
+    <meta name="twitter:title" content="Hotel Atithi Raichur - Order Food Online" />
+    <meta name="twitter:description" content="Hot Biryani, Tandoori, Chinese and Veg meals from Hotel Atithi, Raichur. No delivery charge, Cash on Delivery." />
     <meta name="twitter:image" content="https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=1200&auto=format&fit=crop&q=80" />
 
-    <!-- Local SEO Geo Tags -->
+    <!-- Local SEO geo tags (kept in sync with the admin settings at runtime) -->
     <meta name="geo.region" content="IN-KA" />
-    <meta name="geo.placename" content="Sindhanur, Raichur, Karnataka" />
-    <meta name="geo.position" content="15.806135;76.765092" />
-    <meta name="ICBM" content="15.806135, 76.765092" />
+    <meta name="geo.placename" content="Raichur, Karnataka" />
+    <meta name="geo.position" content="16.2111455;77.3572712" />
+    <meta name="ICBM" content="16.2111455, 77.3572712" />
 
-    <!-- Google Restaurant JSON-LD Structured Data Schema -->
-    <script type="application/ld+json">
+    <!-- Restaurant structured data for Google. Address, phone, location and opening
+         hours are replaced at runtime with the values from the admin Settings page. -->
+    <script type="application/ld+json" id="restaurant-jsonld">
     {
       "@context": "https://schema.org",
       "@type": "Restaurant",
+      "@id": "https://hotel-atithi.com/#restaurant",
       "name": "Hotel Atithi",
+      "url": "https://hotel-atithi.com/",
       "image": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=1200&auto=format&fit=crop&q=80",
-      "description": "Authentic multi-cuisine restaurant in Sindhanur offering hot Biryani, Starters, Chinese, Tandoori, Veg & Non-Veg delicacies with fast local delivery.",
+      "description": "Multi-cuisine restaurant in Raichur serving Biryani, Tandoori, Chinese, Veg and Non-Veg dishes with home delivery.",
       "address": {
         "@type": "PostalAddress",
-        "streetAddress": "NH150A, Bassapura, Sindhanuru taluku",
-        "addressLocality": "Sindhanur",
+        "streetAddress": "Raichur",
+        "addressLocality": "Raichur",
         "addressRegion": "Karnataka",
-        "postalCode": "584128",
         "addressCountry": "IN"
       },
       "geo": {
         "@type": "GeoCoordinates",
-        "latitude": 15.806135,
-        "longitude": 76.765092
+        "latitude": 16.2111455,
+        "longitude": 77.3572712
       },
-      "servesCuisine": [
-        "Indian",
-        "Biryani",
-        "Tandoori",
-        "Chinese",
-        "North Indian",
-        "South Indian"
-      ],
+      "areaServed": { "@type": "City", "name": "Raichur" },
+      "servesCuisine": ["Indian", "Biryani", "Tandoori", "Chinese", "North Indian", "South Indian"],
       "priceRange": "₹₹",
       "currenciesAccepted": "INR",
       "paymentAccepted": "Cash, UPI",
-      "openingHoursSpecification": [
-        {
-          "@type": "OpeningHoursSpecification",
-          "dayOfWeek": [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday"
-          ],
-          "opens": "07:00",
-          "closes": "23:00"
-        }
-      ],
+      "hasMenu": "https://hotel-atithi.com/",
       "potentialAction": {
         "@type": "OrderAction",
         "target": {
