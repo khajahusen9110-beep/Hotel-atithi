@@ -4,6 +4,8 @@ import { useCart } from '../context/CartContext';
 import { Plus, Minus, Clock, Flame, AlertCircle } from 'lucide-react';
 import { getProductAvailability } from '../utils/productAvailability';
 import { FALLBACK_FOOD_IMAGE, responsiveSrcSet, sizedImageUrl } from '../utils/image';
+import { useSettings } from '../context/SettingsContext';
+import { shortOpening } from '../utils/storeHours';
 
 interface ProductCardProps {
   product: Product;
@@ -15,6 +17,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, showCategory 
   const { items, addToCart, updateQuantity } = useCart();
   const cartItem = items.find((item) => item.product.id === product.id);
   const availability = getProductAvailability(product);
+  // Outside the hotel's timings every dish is unavailable, whatever its own serving window
+  const { storeStatus } = useSettings();
+  const storeClosed = !storeStatus.isOpen;
 
   const fallbackImage =
     product.type === 'food'
@@ -157,7 +162,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, showCategory 
           </div>
 
           <div>
-            {!availability.isAvailable ? (
+            {storeClosed ? (
+              <div className="text-right">
+                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-100 text-stone-500 text-[11px] font-semibold border border-stone-200 cursor-not-allowed">
+                  <Clock className="w-3 h-3 text-stone-400" />
+                  <span>Closed</span>
+                </span>
+                {storeStatus.nextOpenAt && (
+                  <p className="text-[10px] text-stone-500 mt-0.5 font-medium">
+                    Opens {shortOpening(storeStatus.nextOpenAt)}
+                  </p>
+                )}
+              </div>
+            ) : !availability.isAvailable ? (
               <div className="text-right">
                 <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-100 text-stone-500 text-[11px] font-semibold border border-stone-200 cursor-not-allowed">
                   <Clock className="w-3 h-3 text-stone-400" />

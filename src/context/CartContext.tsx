@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { useToast } from './ToastContext';
 import { getProductAvailability } from '../utils/productAvailability';
 import { soundAndHaptics } from '../utils/soundAndHaptics';
+import { useSettings } from './SettingsContext';
+import { describeOpening } from '../utils/storeHours';
 
 interface CartContextType {
   items: CartItem[];
@@ -39,6 +41,7 @@ const loadSavedCart = (): CartItem[] => {
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { success, error: toastError } = useToast();
+  const { storeStatus } = useSettings();
   const [items, setItems] = useState<CartItem[]>(loadSavedCart);
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -75,6 +78,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const addToCart = (product: Product, quantity: number = 1) => {
+    if (!storeStatus.isOpen) {
+      soundAndHaptics.triggerHaptic('warning');
+      toastError(
+        storeStatus.nextOpenAt
+          ? `We're closed right now. We open ${describeOpening(storeStatus.nextOpenAt)}.`
+          : "We're closed right now. Please check back later."
+      );
+      return;
+    }
     const avail = getProductAvailability(product);
     if (!avail.isAvailable) {
       soundAndHaptics.triggerHaptic('warning');
