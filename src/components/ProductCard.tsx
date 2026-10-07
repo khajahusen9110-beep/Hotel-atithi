@@ -3,34 +3,49 @@ import { Product } from '../types/database';
 import { useCart } from '../context/CartContext';
 import { Plus, Minus, Clock, Flame, AlertCircle } from 'lucide-react';
 import { getProductAvailability } from '../utils/productAvailability';
+import { FALLBACK_FOOD_IMAGE, responsiveSrcSet, sizedImageUrl } from '../utils/image';
 
 interface ProductCardProps {
   product: Product;
+  /** Show the dish's category (used in search results that span categories) */
+  showCategory?: boolean;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, showCategory = false }) => {
   const { items, addToCart, updateQuantity } = useCart();
   const cartItem = items.find((item) => item.product.id === product.id);
   const availability = getProductAvailability(product);
 
   const fallbackImage =
     product.type === 'food'
-      ? 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&auto=format&fit=crop&q=60'
+      ? FALLBACK_FOOD_IMAGE
       : 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=600&auto=format&fit=crop&q=60';
+  const imageUrl = product.image_url || fallbackImage;
 
   return (
-    <div className="bg-white rounded-3xl border border-stone-200/80 shadow-xs hover:shadow-md transition-all flex flex-col overflow-hidden group">
-      {/* Product Image Banner */}
-      <div className="relative aspect-4/3 overflow-hidden bg-stone-100">
+    // Mobile: compact row (details left, photo right) like the big delivery apps.
+    // sm and up: classic card with the photo on top.
+    <div className="bg-white rounded-2xl sm:rounded-3xl border border-stone-200/80 shadow-xs hover:shadow-md transition-all flex flex-row-reverse sm:flex-col overflow-hidden group">
+      {/* Product Image */}
+      <div className="relative shrink-0 w-28 h-28 m-3 ml-0 rounded-2xl sm:m-0 sm:w-auto sm:h-auto sm:rounded-none sm:aspect-4/3 overflow-hidden bg-stone-100">
         <img
-          src={product.image_url || fallbackImage}
+          src={sizedImageUrl(imageUrl, 400)}
+          srcSet={responsiveSrcSet(imageUrl, [224, 400, 640, 800])}
+          sizes="(min-width: 640px) 400px, 112px"
           alt={product.name}
+          width={400}
+          height={300}
+          decoding="async"
           className={`w-full h-full object-cover transition-transform duration-300 ${
             availability.isAvailable ? 'group-hover:scale-105' : 'grayscale-30 brightness-90'
           }`}
           loading="lazy"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = fallbackImage;
+            const img = e.currentTarget;
+            if (img.src !== fallbackImage) {
+              img.srcset = '';
+              img.src = fallbackImage;
+            }
           }}
         />
 
@@ -38,7 +53,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {product.type === 'food' && (
           <div
             id={`food-badge-${product.id}`}
-            className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm p-1 rounded-md shadow-xs flex items-center justify-center"
+            className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-white/95 backdrop-blur-sm p-1 rounded-md shadow-xs flex items-center justify-center"
             title={product.is_veg !== false ? 'Pure Vegetarian' : 'Non-Vegetarian'}
             aria-label={product.is_veg !== false ? 'Pure Vegetarian' : 'Non-Vegetarian'}
           >
@@ -60,7 +75,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
         {/* Type / Unit Pill */}
         {product.unit && (
-          <div className="absolute top-3 right-3 bg-stone-900/80 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
+          <div className="hidden sm:block absolute top-3 right-3 bg-stone-900/80 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
             {product.unit}
           </div>
         )}
@@ -69,11 +84,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {!availability.isAvailable && (
           <div className="absolute inset-0 bg-stone-950/65 backdrop-blur-xs flex flex-col items-center justify-center text-center p-3 text-white">
             <Clock className="w-5 h-5 text-amber-300 mb-1 animate-pulse" />
-            <span className="font-bold text-xs sm:text-sm">
+            <span className="font-bold text-[11px] sm:text-sm leading-tight">
               {availability.servingWindowText ? 'Outside Serving Hours' : 'Currently Unavailable'}
             </span>
             {availability.servingWindowText && (
-              <span className="text-[11px] text-amber-200 font-medium mt-0.5">
+              <span className="hidden sm:inline text-[11px] text-amber-200 font-medium mt-0.5">
                 Available: {availability.servingWindowText}
               </span>
             )}
@@ -82,8 +97,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </div>
 
       {/* Product Body */}
-      <div className="p-4 flex-1 flex flex-col justify-between">
+      <div className="p-3 sm:p-4 flex-1 min-w-0 flex flex-col justify-between">
         <div>
+          {showCategory && product.category?.name && (
+            <span className="block text-[10px] font-bold uppercase tracking-wide text-orange-600 mb-0.5">
+              {product.category.name}
+            </span>
+          )}
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-bold text-stone-900 text-sm sm:text-base leading-snug group-hover:text-amber-600 transition-colors">
               {product.name}
@@ -128,9 +148,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
 
         {/* Price & Action Button */}
-        <div className="pt-4 mt-2 border-t border-stone-100 flex items-center justify-between gap-2">
+        <div className="pt-3 sm:pt-4 mt-2 border-t border-stone-100 flex items-center justify-between gap-2">
           <div>
-            <span className="text-xs text-stone-400">Price</span>
+            <span className="hidden sm:block text-xs text-stone-400">Price</span>
             <div className="font-display font-bold text-base sm:text-lg text-stone-900">
               ₹{product.price}
             </div>
@@ -184,3 +204,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     </div>
   );
 };
+
+
+export const ProductCardSkeleton: React.FC = () => (
+  <div
+    className="bg-white rounded-2xl sm:rounded-3xl border border-stone-200/80 overflow-hidden animate-pulse flex flex-row-reverse sm:flex-col"
+    aria-hidden="true"
+  >
+    <div className="shrink-0 w-28 h-28 m-3 ml-0 rounded-2xl sm:m-0 sm:w-auto sm:h-auto sm:rounded-none sm:aspect-4/3 bg-stone-100" />
+    <div className="flex-1 p-3 sm:p-4 space-y-2.5">
+      <div className="h-4 w-3/4 rounded-md bg-stone-100" />
+      <div className="h-3 w-full rounded-md bg-stone-100" />
+      <div className="h-3 w-2/3 rounded-md bg-stone-100" />
+      <div className="pt-4 mt-2 border-t border-stone-100 flex items-center justify-between">
+        <div className="h-5 w-14 rounded-md bg-stone-100" />
+        <div className="h-8 w-20 rounded-2xl bg-stone-100" />
+      </div>
+    </div>
+  </div>
+);

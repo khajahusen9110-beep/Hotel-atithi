@@ -1,9 +1,11 @@
 import React from 'react';
 import { Utensils, MapPin, Phone, Clock, ShieldCheck, Heart } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
+import { formatTime12Hour } from '../utils/productAvailability';
 
 export const Footer: React.FC = () => {
-  const { settings } = useSettings();
+  const { settings, todayHoursText } = useSettings();
+  const phone = settings?.hotel_phone?.trim();
 
   return (
     <footer className="bg-stone-900 text-stone-300 pt-12 pb-24 md:pb-12 border-t border-stone-800">
@@ -18,7 +20,7 @@ export const Footer: React.FC = () => {
               <span className="font-display font-bold text-xl text-white">Hotel Atithi</span>
             </div>
             <p className="text-xs text-stone-400 leading-relaxed">
-              Serving delicious pure-veg and non-veg culinary delights & delivering fresh farm vegetables directly to your doorstep.
+              Biryani, tandoori, Chinese and home-style veg & non-veg meals from Sindhanur, delivered hot to your doorstep.
             </p>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/60 border border-amber-800/80 text-[11px] font-bold text-amber-300">
               <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
@@ -34,8 +36,12 @@ export const Footer: React.FC = () => {
             </h4>
             <div className="text-xs space-y-1.5 text-stone-400">
               <p className="font-medium text-stone-300">Open All 7 Days</p>
-              <p>Kitchen: {settings?.opening_time || '08:00'} - {settings?.closing_time || '23:00'}</p>
-              <p>Vegetable Dispatch: 07:00 - 21:00</p>
+              <p>{todayHoursText.replace(/^Hours:\s*/, 'Today: ')}</p>
+              {settings?.opening_time && settings?.closing_time && (
+                <p>
+                  Kitchen: {formatTime12Hour(settings.opening_time)} - {formatTime12Hour(settings.closing_time)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -46,11 +52,16 @@ export const Footer: React.FC = () => {
               Contact & Location
             </h4>
             <div className="text-xs space-y-1.5 text-stone-400">
-              <p>{settings?.hotel_address || 'Hotel Atithi, Station Road, Pune'}</p>
-              <p className="flex items-center gap-1 text-stone-300 font-semibold pt-1">
-                <Phone className="w-3.5 h-3.5 text-amber-400" />
-                {settings?.hotel_phone || '+91 98765 43210'}
-              </p>
+              <p>{settings?.hotel_address || 'NH150A, Bassapura, Sindhanur, Raichur, Karnataka 584128'}</p>
+              {phone && (
+                <a
+                  href={`tel:${phone.replace(/[^\d+]/g, '')}`}
+                  className="flex items-center gap-1 text-stone-300 font-semibold pt-1 hover:text-white"
+                >
+                  <Phone className="w-3.5 h-3.5 text-amber-400" />
+                  {phone}
+                </a>
+              )}
             </div>
           </div>
 
@@ -61,10 +72,10 @@ export const Footer: React.FC = () => {
               Quality Assured
             </h4>
             <ul className="text-xs space-y-1.5 text-stone-400">
-              <li>• Hygienically prepped pure veg dishes</li>
-              <li>• Farm-direct daily harvested veggies</li>
+              <li>• Freshly cooked, hygienically prepared dishes</li>
+              <li>• Clear veg / non-veg marking on every dish</li>
               <li>• Cash on Delivery (cash or UPI to delivery person)</li>
-              <li>• Live GPS tracking on all orders</li>
+              <li>• Live order status tracking</li>
             </ul>
           </div>
         </div>
@@ -72,7 +83,7 @@ export const Footer: React.FC = () => {
         <div className="pt-8 border-t border-stone-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
           <p>© {new Date().getFullYear()} Hotel Atithi. All rights reserved.</p>
           <p className="flex items-center gap-1">
-            Made with <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> for pure veg food lovers
+            Made with <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> in Sindhanur
           </p>
         </div>
       </div>
