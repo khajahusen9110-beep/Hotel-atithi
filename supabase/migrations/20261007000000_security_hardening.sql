@@ -1,4 +1,5 @@
--- Hotel Atithi: production security hardening
+-- Hotel Atithi: production security hardening (COD only, guest checkout)
+-- Also enable: Dashboard -> Authentication -> Sign In / Providers -> "Allow anonymous sign-ins" (needed for ordering without login)
 -- Run once in Supabase Dashboard -> SQL Editor (safe to re-run; no data is deleted).
 
 begin;
@@ -44,6 +45,7 @@ for each row execute function public.guard_profile_fields();
 --    - customers can no longer write payment_id (before: they could point an
 --      expensive order at a cheap paid Razorpay order and get it marked paid)
 --    - delivery address must belong to the customer
+--    - Cash on Delivery only; max 3 open orders per customer in 15 minutes
 -- ---------------------------------------------------------------------------
 alter table public.orders add column if not exists razorpay_order_id text;
 
@@ -68,8 +70,19 @@ begin
       raise exception 'Invalid delivery address';
     end if;
 
+    -- simple abuse guard for guest checkout: max 3 open orders in 15 minutes per customer
+    if (
+      select count(*) from public.orders o
+      where o.customer_id = auth.uid()
+        and o.status = 'new'
+        and o.created_at > now() - interval '15 minutes'
+    ) >= 3 then
+      raise exception 'Too many pending orders. Please wait for the restaurant to confirm your earlier order.';
+    end if;
+
     new.status := 'new';
     new.payment_status := 'pending';
+    new.payment_gateway := 'cod';  -- Cash on Delivery only
     new.payment_id := null;
     new.razorpay_order_id := null;
     new.discount_amount := 0;
@@ -111,8 +124,8 @@ begin
     end if;
   end if;
 
-  if new.payment_gateway is distinct from old.payment_gateway and old.payment_status = 'paid' then
-    raise exception 'Payment method cannot be changed after payment';
+  if new.payment_gateway is distinct from old.payment_gateway then
+    raise exception 'Payment method cannot be changed';
   end if;
 
   return new;
@@ -402,7 +415,58 @@ after update on public.orders
 for each row execute function public.release_coupon_on_cancel();
 
 -- ---------------------------------------------------------------------------
--- 7. Internal helpers should not be callable from the public API
+-- 7. Dashboard "today" should be the Indian day, not the UTC day
+-- ---------------------------------------------------------------------------
+create or replace function public.get_dashboard_stats()
+returns json
+language plpgsql
+stable security definer
+set search_path to 'public'
+as $$
+declare
+  result json;
+  v_today_start timestamptz := (date_trunc('day', now() at time zone 'Asia/Kolkata')) at time zone 'Asia/Kolkata';
+begin
+  if not public.is_admin() then
+    raise exception 'Access denied: admin only';
+  end if;
+
+  select json_build_object(
+    'today_orders_count', (select count(*) from public.orders where created_at >= v_today_start),
+    'today_revenue', (
+      select coalesce(sum(total), 0) from public.orders
+      where created_at >= v_today_start and status not in ('rejected', 'cancelled')
+    ),
+    'pending_orders_count', (
+      select count(*) from public.orders where status in ('new', 'accepted', 'preparing', 'out_for_delivery')
+    ),
+    'new_orders_count', (select count(*) from public.orders where status = 'new'),
+    'total_orders_count', (select count(*) from public.orders),
+    'total_revenue', (select coalesce(sum(total), 0) from public.orders where payment_status = 'paid'),
+    'low_stock_products', (
+      select coalesce(json_agg(json_build_object('id', id, 'name', name, 'stock', stock)), '[]'::json)
+      from public.products where stock <= 5 and is_available = true
+    ),
+    'orders_by_status', (
+      select coalesce(json_object_agg(status, cnt), '{}'::json)
+      from (select status, count(*) as cnt from public.orders group by status) s
+    )
+  ) into result;
+
+  return result;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 8. Product images: 5 MB limit, images only
+-- ---------------------------------------------------------------------------
+update storage.buckets
+set file_size_limit = 5242880,
+    allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+where id = 'product-images';
+
+-- ---------------------------------------------------------------------------
+-- 9. Internal helpers should not be callable from the public API
 -- ---------------------------------------------------------------------------
 revoke execute on function public.guard_profile_fields() from public, anon, authenticated;
 revoke execute on function public.release_coupon_on_cancel() from public, anon, authenticated;

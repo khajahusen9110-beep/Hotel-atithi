@@ -1,9 +1,8 @@
 # Supabase backend changes
 
-Apply in this order (payments break if the functions are deployed before the SQL):
-
-1. **SQL** — Supabase Dashboard → SQL Editor → paste `migrations/20261007000000_security_hardening.sql` → Run.
-2. **Edge functions** — redeploy `create-razorpay-order` and `verify-payment` from `functions/`
-   (Dashboard → Edge Functions → open the function → replace code → Deploy, or `supabase functions deploy <name>`).
-   Required secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` (already used by the old versions).
-3. **Auth setting** — Dashboard → Authentication → Settings → enable *Leaked password protection*.
+1. **SQL** — Supabase Dashboard → SQL Editor → paste `migrations/20261007000000_security_hardening.sql` → Run (safe to re-run, deletes no data).
+2. **Guest checkout** — Authentication → Sign In / Providers → turn on **Allow anonymous sign-ins**.
+   Customers who order without logging in get a private guest session on their device.
+3. **Leaked password protection** — Authentication → Settings → enable it.
+4. Online payment is switched off (Cash on Delivery only). The old `create-razorpay-order` and
+   `verify-payment` edge functions are no longer used and can be deleted from Edge Functions.

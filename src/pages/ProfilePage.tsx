@@ -23,7 +23,7 @@ import {
 import { soundAndHaptics } from '../utils/soundAndHaptics';
 
 export const ProfilePage: React.FC = () => {
-  const { user, profile, updateProfile, signOut } = useAuth();
+  const { user, profile, updateProfile, signOut, isGuest } = useAuth();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
 
@@ -182,6 +182,12 @@ export const ProfilePage: React.FC = () => {
   };
 
   const handleSignOut = async () => {
+    if (
+      isGuest &&
+      !window.confirm('You are ordering as a guest. Signing out will remove your saved addresses and order history from this device. Continue?')
+    ) {
+      return;
+    }
     await signOut();
     success('Logged out successfully');
     navigate('/');

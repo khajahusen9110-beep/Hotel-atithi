@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../lib/supabase';
-import { Address, AddressFormData, PaymentGateway } from '../types/database';
+import { Address, AddressFormData } from '../types/database';
 import { AddressForm } from '../components/AddressForm';
 import {
   MapPin,
@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { soundAndHaptics } from '../utils/soundAndHaptics';
-import { startRazorpayPayment } from '../utils/razorpay';
 import {
   getProductAvailability,
   checkProductOrderableRPC,
@@ -37,7 +36,7 @@ import {
 
 export const CheckoutPage: React.FC = () => {
   const { items, subtotal, clearCart, refreshCartProducts } = useCart();
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading, ensureSession, refreshProfile } = useAuth();
   const { settings, isOpen } = useSettings();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
@@ -50,7 +49,8 @@ export const CheckoutPage: React.FC = () => {
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
-  const [paymentGateway, setPaymentGateway] = useState<PaymentGateway>('cod');
+  // Hotel Atithi accepts Cash on Delivery only
+  const paymentGateway = 'cod' as const;
   const [isProcessing, setIsProcessing] = useState(false);
   const [isOrderPlaced, setIsOrderPlaced] = useState(false);
 
@@ -113,37 +113,45 @@ export const CheckoutPage: React.FC = () => {
   }, []);
 
   // Fetch saved customer addresses
-  const fetchAddresses = async () => {
-    if (!user) return;
+  const fetchAddresses = async (userId: string | undefined = user?.id) => {
+    if (!userId) {
+      setAddresses([]);
+      setIsAddingAddress(true);
+      setLoadingAddresses(false);
+      return [] as Address[];
+    }
     setLoadingAddresses(true);
     try {
       const { data, error } = await supabase
         .from('addresses')
         .select('*')
-        .eq('customer_id', user.id)
+        .eq('customer_id', userId)
         .order('is_default', { ascending: false });
 
       if (!error && data && data.length > 0) {
         setAddresses(data);
-        const defaultAddr = data.find((a) => a.is_default) || data[0];
-        setSelectedAddressId(defaultAddr.id);
-      } else {
-        setAddresses([]);
-        setIsAddingAddress(true);
+        setSelectedAddressId((prev) =>
+          data.some((a) => a.id === prev) ? prev : (data.find((a) => a.is_default) || data[0]).id
+        );
+        return data as Address[];
       }
+      setAddresses([]);
+      setIsAddingAddress(true);
+      return [] as Address[];
     } catch (e) {
       console.warn('Error fetching addresses:', e);
       setIsAddingAddress(true);
+      return [] as Address[];
     } finally {
       setLoadingAddresses(false);
     }
   };
 
   useEffect(() => {
-    if (user) {
-      fetchAddresses();
-    }
-  }, [user]);
+    if (authLoading) return;
+    fetchAddresses(user?.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, authLoading]);
 
   // Safely redirect to cart in useEffect rather than during rendering
   useEffect(() => {
@@ -151,28 +159,6 @@ export const CheckoutPage: React.FC = () => {
       navigate('/cart', { replace: true });
     }
   }, [items.length, isProcessing, isOrderPlaced, navigate]);
-
-  if (!user) {
-    return (
-      <div className="max-w-md mx-auto py-16 px-4 text-center space-y-4">
-        <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-          <User className="w-7 h-7" />
-        </div>
-        <h2 className="font-display font-bold text-xl text-stone-900">
-          Sign In to Place Order
-        </h2>
-        <p className="text-xs text-stone-500">
-          Quickly login with your mobile phone number to save your delivery addresses and track orders in real time.
-        </p>
-        <Link
-          to="/auth?redirect=/checkout"
-          className="inline-block px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs"
-        >
-          Sign In with Phone
-        </Link>
-      </div>
-    );
-  }
 
   if (items.length === 0 && !isOrderPlaced) {
     return (
@@ -184,14 +170,15 @@ export const CheckoutPage: React.FC = () => {
   }
 
   const handleSaveNewAddress = async (formData: AddressFormData) => {
-    if (!user) return;
-
     try {
+      // Visitors can order without an account: a guest session is created on first address save
+      const currentUser = user ?? (await ensureSession());
+
       if (formData.is_default) {
         await supabase
           .from('addresses')
           .update({ is_default: false })
-          .eq('customer_id', user.id);
+          .eq('customer_id', currentUser.id);
       }
 
       if (editingAddress) {
@@ -216,13 +203,13 @@ export const CheckoutPage: React.FC = () => {
         success('Delivery address updated');
         const editedId = editingAddress.id;
         setEditingAddress(null);
-        await fetchAddresses();
+        await fetchAddresses(currentUser.id);
         setSelectedAddressId(editedId);
       } else {
         const { data, error } = await supabase
           .from('addresses')
           .insert({
-            customer_id: user.id,
+            customer_id: currentUser.id,
             recipient_name: formData.recipient_name,
             phone: formData.phone,
             label: formData.label,
@@ -241,21 +228,22 @@ export const CheckoutPage: React.FC = () => {
 
         success('Delivery address saved');
         setIsAddingAddress(false);
-        await fetchAddresses();
+        await fetchAddresses(currentUser.id);
         if (data) {
           setSelectedAddressId(data.id);
         }
       }
     } catch (err: any) {
       toastError(err.message || 'Failed to save address');
+      throw err;
     }
   };
 
   const handlePlaceOrder = async () => {
     // 1. Pre-flight Payload Validation
     if (!user) {
-      toastError('Please sign in to place your order');
-      navigate('/auth?redirect=/checkout');
+      toastError('Please add your delivery address first');
+      setIsAddingAddress(true);
       return;
     }
 
@@ -337,6 +325,18 @@ export const CheckoutPage: React.FC = () => {
       const deliveryNotes = deliveryInstructions.trim();
       const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
+      // The kitchen sees the customer's name/phone from their profile; fill it from the address if missing
+      if (selectedAddress && (!profile?.name || !profile?.phone)) {
+        await supabase
+          .from('profiles')
+          .update({
+            name: profile?.name || selectedAddress.recipient_name || 'Customer',
+            phone: profile?.phone || selectedAddress.phone,
+          })
+          .eq('id', user.id);
+        refreshProfile();
+      }
+
       // 1. Create the order shell (totals are calculated by DB triggers)
       const { data: newOrder, error } = await supabase
         .from('orders')
@@ -409,32 +409,7 @@ export const CheckoutPage: React.FC = () => {
         success(message);
       };
 
-      if (paymentGateway === 'cod') {
-        celebrate('Order placed successfully via Cash on Delivery!');
-        navigate(`/order/${newOrder.id}`, { replace: true });
-        return;
-      }
-
-      // Online payment: server creates the Razorpay order and verifies the signature.
-      const outcome = await startRazorpayPayment({
-        orderId: newOrder.id,
-        orderLabel: `Order #${newOrder.order_number || newOrder.id.slice(0, 8)}`,
-        prefill: {
-          name: selectedAddress?.recipient_name || profile?.name,
-          contact: selectedAddress?.phone || profile?.phone || user.phone,
-          email: user.email,
-        },
-      });
-
-      if (outcome.status === 'paid') {
-        celebrate('Payment received! Order confirmed.');
-      } else if (outcome.status === 'verification_pending') {
-        toastError(outcome.message);
-      } else if (outcome.status === 'failed') {
-        toastError(outcome.message);
-      } else {
-        toastError('Payment not completed. You can pay from the order page.');
-      }
+      celebrate('Order placed! Please pay cash on delivery.');
       navigate(`/order/${newOrder.id}`, { replace: true });
     } catch (err: any) {
       console.error('Checkout error:', err);
@@ -507,15 +482,27 @@ export const CheckoutPage: React.FC = () => {
                     </>
                   )}
                 </h3>
+                {!user && (
+                  <p className="mb-3 text-[11px] text-stone-600 bg-white border border-stone-200 rounded-xl p-2.5">
+                    No account needed — just enter your name, phone number and delivery address.{' '}
+                    <Link to="/auth?redirect=/checkout" className="font-bold text-amber-700 underline">
+                      Already have an account? Sign in
+                    </Link>
+                  </p>
+                )}
                 <AddressForm
                   initialData={editingAddress || undefined}
                   isEdit={!!editingAddress}
                   submitLabel={editingAddress ? 'Update Address' : 'Save Address'}
                   onSubmit={handleSaveNewAddress}
-                  onCancel={() => {
-                    setIsAddingAddress(false);
-                    setEditingAddress(null);
-                  }}
+                  onCancel={
+                    addresses.length > 0
+                      ? () => {
+                          setIsAddingAddress(false);
+                          setEditingAddress(null);
+                        }
+                      : undefined
+                  }
                 />
               </div>
             ) : (
@@ -631,68 +618,19 @@ export const CheckoutPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. Payment Method Selector */}
-          <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xs space-y-4">
-            <h2 className="font-bold text-stone-900 text-sm flex items-center gap-2 pb-3 border-b border-stone-100">
-              <CreditCard className="w-4 h-4 text-amber-600" />
-              Choose Payment Method
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Cash on Delivery */}
-              <div
-                onClick={() => setPaymentGateway('cod')}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                  paymentGateway === 'cod'
-                    ? 'bg-emerald-50/70 border-emerald-500 shadow-xs'
-                    : 'bg-stone-50 border-stone-200 hover:bg-stone-100'
-                }`}
-              >
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                  <Banknote className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-stone-900">Cash on Delivery</span>
-                    {paymentGateway === 'cod' && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    )}
-                  </div>
-                  <p className="text-stone-500 text-[11px] mt-0.5">
-                    Pay in cash or UPI QR directly to the rider upon doorstep delivery.
-                  </p>
-                </div>
-              </div>
-
-              {/* Online Payment (Razorpay) */}
-              <div
-                onClick={() => setPaymentGateway('razorpay')}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                  paymentGateway === 'razorpay'
-                    ? 'bg-amber-50/70 border-amber-500 shadow-xs'
-                    : 'bg-stone-50 border-stone-200 hover:bg-stone-100'
-                }`}
-              >
-                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-stone-900">Online Payment</span>
-                    {paymentGateway === 'razorpay' && (
-                      <CheckCircle2 className="w-4 h-4 text-amber-600" />
-                    )}
-                  </div>
-                  <p className="text-stone-500 text-[11px] mt-0.5">
-                    Razorpay: UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, Netbanking.
-                  </p>
-                </div>
-              </div>
+          {/* 3. Payment: Cash on Delivery only */}
+          <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xs flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+              <Banknote className="w-5 h-5" />
             </div>
-
-            <div className="flex items-center gap-2 pt-2 text-[11px] text-stone-500">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>100% Secure Checkout & Encrypted Transaction</span>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-stone-900 text-sm">Cash on Delivery</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              </div>
+              <p className="text-stone-500 text-[11px] mt-0.5">
+                Pay in cash or UPI directly to our delivery person when your food arrives.
+              </p>
             </div>
           </div>
         </div>
@@ -859,7 +797,7 @@ export const CheckoutPage: React.FC = () => {
                 <span>Remove Unavailable Items to Order</span>
               ) : (
                 <span>
-                  Place Order ({paymentGateway === 'cod' ? 'Cash on Delivery' : 'Pay Online'})
+                  Place Order (Cash on Delivery)
                 </span>
               )}
             </button>

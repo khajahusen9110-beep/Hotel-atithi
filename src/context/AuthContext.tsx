@@ -8,6 +8,10 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  /** true when the visitor is ordering without an account (anonymous Supabase session) */
+  isGuest: boolean;
+  /** Makes sure there is a session; creates a guest session if the visitor isn't logged in */
+  ensureSession: () => Promise<User>;
   signUp: (params: {
     email: string;
     password: string;
@@ -172,6 +176,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error };
   };
 
+  const ensureSession = async (): Promise<User> => {
+    const { data: current } = await supabase.auth.getSession();
+    if (current.session?.user) return current.session.user;
+
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error || !data.user) {
+      console.error('Guest session failed:', error);
+      throw new Error(
+        'Guest checkout is not available right now. Please sign in to place your order.'
+      );
+    }
+    setSession(data.session);
+    setUser(data.user);
+    // profile row is created by the database trigger; give it a moment then load it
+    setTimeout(() => fetchProfile(data.user!.id), 500);
+    return data.user;
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -211,6 +233,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         profile,
         loading,
+        isGuest: Boolean(user?.is_anonymous),
+        ensureSession,
         signUp,
         signInWithPassword,
         signInWithOtp,

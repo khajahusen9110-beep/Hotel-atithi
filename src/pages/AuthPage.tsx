@@ -71,7 +71,8 @@ export const AuthPage: React.FC = () => {
 
   // If already authenticated, redirect
   useEffect(() => {
-    if (user) {
+    // Guests (anonymous sessions) may still open this page to log in or create an account
+    if (user && !user.is_anonymous) {
       navigate(redirectPath);
     }
   }, [user, navigate, redirectPath]);
