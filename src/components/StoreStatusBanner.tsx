@@ -1,9 +1,10 @@
 import React from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { AlertTriangle } from 'lucide-react';
+import { shortOpening } from '../utils/storeHours';
 
 export const StoreStatusBanner: React.FC = () => {
-  const { settings, isOpen, todayHoursText, loading } = useSettings();
+  const { settings, isOpen, todayHoursText, loading, storeStatus } = useSettings();
 
   // Reserve the banner's height while loading so the page doesn't jump when it appears
   if (loading || !settings) {
@@ -25,11 +26,15 @@ export const StoreStatusBanner: React.FC = () => {
         ) : (
           <span className="flex items-center gap-1.5 font-semibold text-rose-600">
             <AlertTriangle className="w-3.5 h-3.5" />
-            Kitchen & Store Closed
+            Closed now
           </span>
         )}
         <span className="text-stone-300">•</span>
-        <span className="text-stone-600">{todayHoursText.replace(/^Hours:\s*/, '')}</span>
+        <span className="text-stone-600">
+          {!isOpen && storeStatus.nextOpenAt
+            ? `Opens ${shortOpening(storeStatus.nextOpenAt)}`
+            : todayHoursText.replace(/^Hours:\s*/, '')}
+        </span>
       </div>
     </div>
   );

@@ -15,6 +15,9 @@ import { StickyCartBar } from './components/StickyCartBar';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ScrollToTop } from './components/ScrollToTop';
 import { SeoSync } from './components/SeoSync';
+import { OfflineBanner } from './components/OfflineBanner';
+import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
+import { InstallAppBanner } from './components/InstallAppBanner';
 import { PageLoader } from './components/PageLoader';
 
 // The menu is the landing page, so it ships in the main bundle; every other page
@@ -67,6 +70,7 @@ export const App: React.FC = () => {
             <SeoSync />
             <CartProvider>
               <div className="min-h-screen flex flex-col bg-white text-stone-900 font-sans selection:bg-orange-100 selection:text-orange-900">
+                <OfflineBanner />
                 <StoreStatusBanner />
                 <Navbar />
 
@@ -91,6 +95,8 @@ export const App: React.FC = () => {
                 </main>
 
                 <StickyCartBar />
+                <InstallAppBanner />
+                <PwaUpdatePrompt />
                 <BottomNav />
                 <Footer />
               </div>

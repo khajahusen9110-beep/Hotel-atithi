@@ -19,11 +19,14 @@ import {
   Volume2,
   Smartphone,
   Sparkles,
+  Download,
 } from 'lucide-react';
+import { usePwaInstall } from '../pwa/usePwaInstall';
 import { soundAndHaptics } from '../utils/soundAndHaptics';
 
 export const ProfilePage: React.FC = () => {
   const { user, profile, updateProfile, signOut, isGuest } = useAuth();
+  const pwa = usePwaInstall();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
 
@@ -272,6 +275,38 @@ export const ProfilePage: React.FC = () => {
             </h2>
 
             <div className="space-y-3">
+              {/* Install as an app (shown when the browser supports it) */}
+              {(pwa.installed || pwa.canPrompt || pwa.iosManual) && (
+                <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-stone-50 border border-stone-100">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                      <Download className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-stone-900 text-xs">Hotel Atithi App</p>
+                      <p className="text-[10px] text-stone-400">
+                        {pwa.installed
+                          ? 'Installed on this device'
+                          : pwa.canPrompt
+                            ? 'Order in one tap from your home screen'
+                            : 'Tap Share, then Add to Home Screen'}
+                      </p>
+                    </div>
+                  </div>
+                  {pwa.installed ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  ) : pwa.canPrompt ? (
+                    <button
+                      type="button"
+                      onClick={() => pwa.install()}
+                      className="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold cursor-pointer shrink-0"
+                    >
+                      Install
+                    </button>
+                  ) : null}
+                </div>
+              )}
+
               {/* Sound Effects Toggle */}
               <div className="flex items-center justify-between p-2 rounded-xl bg-stone-50 border border-stone-100">
                 <div className="flex items-center gap-2.5">

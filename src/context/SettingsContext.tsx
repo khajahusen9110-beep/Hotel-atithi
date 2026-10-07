@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Settings, StoreHours } from '../types/database';
 import { formatTime12Hour, getCurrentDayOfWeekIST } from '../utils/productAvailability';
+import { StoreStatus } from '../utils/storeHours';
 
 interface SettingsContextType {
   settings: Settings | null;
@@ -11,6 +12,8 @@ interface SettingsContextType {
   todayStoreHours: StoreHours | null;
   /** All 7 days, for structured data (empty until loaded) */
   storeHours: StoreHours[];
+  /** Open / closed with the reason and the next opening time (from get_store_status) */
+  storeStatus: StoreStatus;
   refetchSettings: () => Promise<void>;
 }
 
@@ -45,57 +48,98 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [todayStoreHours, setTodayStoreHours] = useState<StoreHours | null>(null);
   const [storeHours, setStoreHours] = useState<StoreHours[]>([]);
   const [todayHoursText, setTodayHoursText] = useState<string>('Hours: 7:00 AM - 11:00 PM');
+  const [storeStatus, setStoreStatus] = useState<StoreStatus>({
+    isOpen: true,
+    reason: 'open',
+    message: null,
+    closesAt: null,
+    nextOpenAt: null,
+  });
+  const boundaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyHours = (hoursData: StoreHours[], todayDow: number, fallbackSettings: Settings | null) => {
+    if (hoursData.length > 0) {
+      setStoreHours(hoursData);
+      const today = hoursData.find((h) => Number(h.day_of_week) === todayDow);
+      if (today) {
+        setTodayStoreHours(today);
+        setTodayHoursText(
+          today.is_closed
+            ? 'Closed Today'
+            : `Hours: ${formatTime12Hour(today.open_time)} - ${formatTime12Hour(today.close_time)}`
+        );
+      }
+    } else if (fallbackSettings) {
+      const openFmt = formatTime12Hour(fallbackSettings.opening_time || '07:00:00');
+      const closeFmt = formatTime12Hour(fallbackSettings.closing_time || '22:00:00');
+      setTodayHoursText(`Hours: ${openFmt} - ${closeFmt}`);
+    }
+  };
+
+  // Re-check exactly when the hotel opens or closes, so menus flip without a reload
+  const scheduleBoundaryRefresh = (status: StoreStatus) => {
+    if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
+    const next = status.isOpen ? status.closesAt : status.nextOpenAt;
+    if (!next) return;
+    const delay = next - Date.now() + 1500;
+    if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+      boundaryTimerRef.current = setTimeout(() => fetchSettings(), delay);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
-      // The three queries are independent: run them in parallel instead of one after another
-      const [settingsRes, openRes, hoursRes] = await Promise.allSettled([
+      // Independent queries: run them in parallel instead of one after another
+      const [settingsRes, statusRes] = await Promise.allSettled([
         supabase.from('settings').select('*').limit(1).maybeSingle(),
-        supabase.rpc('is_store_open_now'),
-        supabase.from('store_hours').select('*'),
+        supabase.rpc('get_store_status'),
       ]);
 
-      // 1. Settings row
       const data =
         settingsRes.status === 'fulfilled' && !settingsRes.value.error ? settingsRes.value.data : null;
       if (data) {
         setSettings(data);
       }
 
-      // 2. is_store_open_now() RPC
-      if (openRes.status === 'fulfilled' && !openRes.value.error && typeof openRes.value.data === 'boolean') {
-        setIsOpen(openRes.value.data);
-      } else {
-        if (openRes.status === 'rejected') console.warn('is_store_open_now RPC error:', openRes.reason);
-        if (data) setIsOpen(data.is_store_open ?? true);
+      const statusData =
+        statusRes.status === 'fulfilled' && !statusRes.value.error ? statusRes.value.data : null;
+
+      if (statusData && typeof statusData.is_open === 'boolean') {
+        // get_store_status(): one answer for the website and the order check
+        const status: StoreStatus = {
+          isOpen: statusData.is_open,
+          reason: statusData.reason ?? (statusData.is_open ? 'open' : 'hours'),
+          message: statusData.message ?? null,
+          closesAt: statusData.closes_at_epoch ? Number(statusData.closes_at_epoch) * 1000 : null,
+          nextOpenAt: statusData.next_open_epoch ? Number(statusData.next_open_epoch) * 1000 : null,
+        };
+        setStoreStatus(status);
+        setIsOpen(status.isOpen);
+        applyHours((statusData.week || []) as StoreHours[], Number(statusData.today_dow ?? getCurrentDayOfWeekIST()), data);
+        scheduleBoundaryRefresh(status);
+        return;
       }
 
-      // 3. store_hours table for today's hours
-      if (hoursRes.status === 'rejected') {
-        console.warn('store_hours table query error:', hoursRes.reason);
-      } else {
-        const { data: hoursData, error: hoursError } = hoursRes.value;
-        if (!hoursError && hoursData && hoursData.length > 0) {
-          setStoreHours(hoursData as StoreHours[]);
-          const currentDay = getCurrentDayOfWeekIST();
-          const today = hoursData.find((h: StoreHours) => h.day_of_week === currentDay);
-          if (today) {
-            setTodayStoreHours(today);
-            if (today.is_closed) {
-              setTodayHoursText('Closed Today');
-              setIsOpen(false);
-            } else {
-              const openFmt = formatTime12Hour(today.open_time);
-              const closeFmt = formatTime12Hour(today.close_time);
-              setTodayHoursText(`Hours: ${openFmt} - ${closeFmt}`);
-            }
-          }
-        } else if (data) {
-          const openFmt = formatTime12Hour(data.opening_time || '07:00:00');
-          const closeFmt = formatTime12Hour(data.closing_time || '22:00:00');
-          setTodayHoursText(`Hours: ${openFmt} - ${closeFmt}`);
-        }
+      // Fallback for a database without get_store_status(): the older open check + hours table
+      const [openRes, hoursRes] = await Promise.allSettled([
+        supabase.rpc('is_store_open_now'),
+        supabase.from('store_hours').select('*'),
+      ]);
+      let open = data ? !data.store_manually_closed : true;
+      if (openRes.status === 'fulfilled' && !openRes.value.error && typeof openRes.value.data === 'boolean') {
+        open = openRes.value.data;
       }
+      const hoursData =
+        hoursRes.status === 'fulfilled' && !hoursRes.value.error ? ((hoursRes.value.data || []) as StoreHours[]) : [];
+      applyHours(hoursData, getCurrentDayOfWeekIST(), data);
+      setIsOpen(open);
+      setStoreStatus({
+        isOpen: open,
+        reason: open ? 'open' : data?.store_manually_closed ? 'manual' : 'hours',
+        message: data?.store_manually_closed ? data.store_closed_message ?? null : null,
+        closesAt: null,
+        nextOpenAt: null,
+      });
     } catch (e) {
       console.warn('Error loading settings from DB, using fallback defaults:', e);
     } finally {
@@ -107,7 +151,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     fetchSettings();
     // Refresh status every 2 minutes
     const interval = setInterval(fetchSettings, 120000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
+    };
   }, []);
 
   return (
@@ -119,6 +166,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         todayHoursText,
         todayStoreHours,
         storeHours,
+        storeStatus,
         refetchSettings: fetchSettings,
       }}
     >

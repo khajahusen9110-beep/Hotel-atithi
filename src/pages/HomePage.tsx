@@ -14,6 +14,7 @@ import {
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { imageSrcSet, sizedImageUrl } from '../utils/image';
+import { StoreClosedNotice } from '../components/StoreClosedNotice';
 import {
   ArrowLeft,
   UtensilsCrossed,
@@ -371,6 +372,8 @@ export const HomePage: React.FC = () => {
           </div>
         )}
       </div>
+
+      <StoreClosedNotice />
 
       {!showDishes ? (
         /* =========================================================================

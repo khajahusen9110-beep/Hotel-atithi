@@ -16,11 +16,12 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getProductAvailability } from '../utils/productAvailability';
+import { describeOpening } from '../utils/storeHours';
 import { FALLBACK_FOOD_IMAGE, imageSrcSet, sizedImageUrl } from '../utils/image';
 
 export const CartPage: React.FC = () => {
   const { items, updateQuantity, removeFromCart, clearCart, subtotal } = useCart();
-  const { settings, isOpen } = useSettings();
+  const { settings, isOpen, storeStatus } = useSettings();
   const navigate = useNavigate();
 
   const [cookingInstructions, setCookingInstructions] = useState('');
@@ -56,7 +57,7 @@ export const CartPage: React.FC = () => {
         </div>
         <h2 className="font-display font-bold text-2xl text-stone-900">Your Cart is Empty</h2>
         <p className="text-xs sm:text-sm text-stone-500 leading-relaxed">
-          Looks like you haven't added any pure veg delicacies or fresh farm vegetables yet.
+          Looks like you haven't added anything yet. Hot biryani, tandoori and more are waiting!
         </p>
         <Link
           to="/"
@@ -94,9 +95,14 @@ export const CartPage: React.FC = () => {
         <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <span className="font-bold text-sm block">Kitchen is Currently Closed</span>
+            <span className="font-bold text-sm block">We're closed right now</span>
             <span className="text-amber-800">
-              You can still review your cart, but orders will be fulfilled when our kitchen opens at {settings?.opening_time || '08:00'}.
+              {storeStatus.reason === 'manual' && storeStatus.message
+                ? `${storeStatus.message} `
+                : ''}
+              {storeStatus.nextOpenAt
+                ? `Your cart is saved. You can place the order when we open ${describeOpening(storeStatus.nextOpenAt)}.`
+                : 'Your cart is saved. You can place the order once we reopen.'}
             </span>
           </div>
         </div>

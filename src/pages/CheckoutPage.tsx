@@ -33,11 +33,12 @@ import {
   formatAvailabilityErrorMessage,
   formatTime12Hour,
 } from '../utils/productAvailability';
+import { describeOpening } from '../utils/storeHours';
 
 export const CheckoutPage: React.FC = () => {
   const { items, subtotal, clearCart, refreshCartProducts } = useCart();
   const { user, profile, loading: authLoading, ensureSession, refreshProfile } = useAuth();
-  const { settings, isOpen } = useSettings();
+  const { settings, isOpen, storeStatus } = useSettings();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
   const submittingRef = useRef(false);
@@ -240,7 +241,11 @@ export const CheckoutPage: React.FC = () => {
     }
 
     if (!isOpen) {
-      toastError('Hotel Atithi is closed right now. Please order during opening hours.');
+      toastError(
+        storeStatus.nextOpenAt
+          ? `We're closed right now. We open ${describeOpening(storeStatus.nextOpenAt)}.`
+          : "We're closed right now. Please order once we reopen."
+      );
       return;
     }
 
@@ -734,7 +739,9 @@ export const CheckoutPage: React.FC = () => {
 
             {!isOpen && (
               <p className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-semibold">
-                We are closed right now. Orders can be placed during opening hours.
+                {storeStatus.nextOpenAt
+                  ? `We're closed right now. You can place this order when we open ${describeOpening(storeStatus.nextOpenAt)}.`
+                  : "We're closed right now. You can place this order once we reopen."}
               </p>
             )}
             {isOpen && subtotal < minOrder && (

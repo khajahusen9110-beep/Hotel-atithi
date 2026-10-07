@@ -1,7 +1,7 @@
 import React from 'react';
 import { Utensils, MapPin, Phone, Clock, ShieldCheck, Heart, Mail, MessageCircle } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
-import { formatTime12Hour } from '../utils/productAvailability';
+import { groupWeeklyHours } from '../utils/storeHours';
 import { telHref, whatsappHref } from '../utils/contact';
 
 export const Footer: React.FC = () => {
@@ -29,6 +29,7 @@ export const Footer: React.FC = () => {
   const closedDays = storeHours.filter((h) => h.is_closed).map((h) => DAY_SHORT[h.day_of_week]);
   const openDaysText =
     storeHours.length === 0 || closedDays.length === 0 ? 'Open All 7 Days' : `Closed on ${closedDays.join(', ')}`;
+  const weekly = groupWeeklyHours(storeHours);
   const mapsLink =
     lat != null && lng != null ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : null;
 
@@ -61,11 +62,17 @@ export const Footer: React.FC = () => {
             </h4>
             <div className="text-xs space-y-1.5 text-stone-400">
               <p className="font-medium text-stone-300">{openDaysText}</p>
-              <p>{todayHoursText.replace(/^Hours:\s*/, 'Today: ')}</p>
-              {settings?.opening_time && settings?.closing_time && (
-                <p>
-                  Kitchen: {formatTime12Hour(settings.opening_time)} - {formatTime12Hour(settings.closing_time)}
-                </p>
+              {weekly.length > 0 ? (
+                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                  {weekly.map((row) => (
+                    <React.Fragment key={row.days}>
+                      <dt className="text-stone-300">{row.days}</dt>
+                      <dd className={row.hours === 'Closed' ? 'text-rose-400' : undefined}>{row.hours}</dd>
+                    </React.Fragment>
+                  ))}
+                </dl>
+              ) : (
+                <p>{todayHoursText.replace(/^Hours:\s*/, 'Today: ')}</p>
               )}
             </div>
           </div>
