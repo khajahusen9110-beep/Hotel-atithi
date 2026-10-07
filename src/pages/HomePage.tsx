@@ -98,8 +98,10 @@ export const HomePage: React.FC = () => {
   const updateParams = useCallback(
     (changes: Record<string, string | null>, options?: { replace?: boolean }) => {
       setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
+        () => {
+          // Read the live URL, not the hook's `prev`: `prev` is from the last render, so two
+          // quick changes (e.g. Veg off, then sort) would otherwise undo the first one.
+          const next = new URLSearchParams(window.location.search);
           for (const [k, v] of Object.entries(changes)) {
             if (v === null || v === '') next.delete(k);
             else next.set(k, v);
