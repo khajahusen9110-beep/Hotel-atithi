@@ -15,6 +15,9 @@ export interface MenuQuery {
 }
 
 export const MENU_PAGE_SIZE = 12;
+// A category page shows the whole category at once (largest is ~30 dishes), so search
+// engines and customers see every dish without scrolling for more.
+export const CATEGORY_PAGE_SIZE = 60;
 const CACHE_TTL_MS = 5 * 60_000;
 
 interface CacheEntry {
@@ -40,6 +43,9 @@ export const sanitizeSearch = (raw: string): string =>
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 60);
+
+const pageSizeFor = (q: MenuQuery): number =>
+  q.categoryId && !sanitizeSearch(q.search) ? CATEGORY_PAGE_SIZE : MENU_PAGE_SIZE;
 
 const queryKey = (q: MenuQuery): string =>
   JSON.stringify([q.categoryId, sanitizeSearch(q.search).toLowerCase(), q.vegOnly, q.sort]);
@@ -69,7 +75,7 @@ const fetchPage = (q: MenuQuery, offset: number): Promise<PageResult> => {
     // Unique tie-breaker keeps page boundaries stable (no duplicated or skipped dishes)
     query = query.order('id', { ascending: true });
 
-    const { data, error, count } = await query.range(offset, offset + MENU_PAGE_SIZE - 1);
+    const { data, error, count } = await query.range(offset, offset + pageSizeFor(q) - 1);
     if (error) throw error;
     return { items: (data || []) as Product[], total: count ?? null };
   };
@@ -92,7 +98,7 @@ export const prefetchMenuProducts = (q: MenuQuery): void => {
       cache.set(key, {
         items,
         total,
-        hasMore: total !== null ? items.length < total : items.length === MENU_PAGE_SIZE,
+        hasMore: total !== null ? items.length < total : items.length === pageSizeFor(q),
         fetchedAt: Date.now(),
       });
     })
@@ -137,7 +143,7 @@ export function useMenuProducts(query: MenuQuery | null) {
     if (!background) setState({ ...EMPTY, loading: true });
     fetchPage(q, 0)
       .then(({ items, total }) => {
-        const hasMore = total !== null ? items.length < total : items.length === MENU_PAGE_SIZE;
+        const hasMore = total !== null ? items.length < total : items.length === pageSizeFor(q);
         cache.set(k, { items, total, hasMore, fetchedAt: Date.now() });
         if (keyRef.current !== k) return; // the customer has moved on to another query
         setState({ ...EMPTY, items, total, hasMore });
@@ -182,7 +188,7 @@ export function useMenuProducts(query: MenuQuery | null) {
         const seen = new Set(current.items.map((p) => p.id));
         const items = current.items.concat(page.filter((p) => !seen.has(p.id)));
         const hasMore =
-          page.length === MENU_PAGE_SIZE && (current.total === null || items.length < current.total);
+          page.length === pageSizeFor(q) && (current.total === null || items.length < current.total);
         cache.set(k, { ...current, items, hasMore });
         if (keyRef.current !== k) return;
         setState((s) => ({ ...s, items, hasMore, loadingMore: false }));

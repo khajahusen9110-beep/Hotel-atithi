@@ -6,3 +6,6 @@ dist/
 .DS_Store
 .vercel
 .wrangler/
+
+# Written by the Vite build for the Cloudflare Worker (sitemap)
+worker/*.generated.json
