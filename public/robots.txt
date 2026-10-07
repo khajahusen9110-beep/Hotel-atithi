@@ -8,4 +8,4 @@ Disallow: /auth
 Disallow: /profile
 
 # Sitemap location
-Sitemap: https://hotel-atithi.com/sitemap.xml
+Sitemap: https://hotelamaratithi.in/sitemap.xml
