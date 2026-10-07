@@ -47,6 +47,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
         globIgnores: ['**/leaflet-*'],
         navigateFallback: '/index.html',
+        // Files for search engines must open as themselves, not as the app
+        navigateFallbackDenylist: [/^\/sitemap\.xml$/, /^\/robots\.txt$/],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
