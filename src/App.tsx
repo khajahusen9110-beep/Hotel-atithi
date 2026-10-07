@@ -79,6 +79,7 @@ export const App: React.FC = () => {
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         <Route path="/" element={<HomePage />} />
+                        <Route path="/menu/:slug" element={<HomePage />} />
                         <Route path="/cart" element={<CartPage />} />
                         <Route path="/checkout" element={<CheckoutPage />} />
                         <Route path="/order/:orderId" element={<OrderTrackingPage />} />

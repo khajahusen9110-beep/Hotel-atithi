@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Category } from '../types/database';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
@@ -15,6 +15,10 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { imageSrcSet, sizedImageUrl } from '../utils/image';
 import { StoreClosedNotice } from '../components/StoreClosedNotice';
+import { CategorySeo } from '../components/CategorySeo';
+import { useFoodCategories } from '../hooks/useFoodCategories';
+import { useSettings } from '../context/SettingsContext';
+import { categoryPath, slugify } from '../utils/slug';
 import {
   ArrowLeft,
   UtensilsCrossed,
@@ -39,9 +43,8 @@ const parseSort = (value: string | null): MenuSort =>
 // Searches shorter than this return most of the menu, so they are ignored
 const MIN_SEARCH_LENGTH = 2;
 
-// Categories and their dish counts barely change; keep them for the whole visit
+// Dish counts barely change; keep them for the whole visit
 // so returning to the menu renders instantly without a loading flash.
-let categoriesCache: Category[] | null = null;
 let categoryCountsCache: Record<string, number> | null = null;
 
 // Category image fallback helper
@@ -77,15 +80,20 @@ const getCategoryFallbackImage = (name: string): string => {
 export const HomePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // The URL is the source of truth, so filtered views can be shared and the back button works
-  const selectedCategoryId = searchParams.get('category') || null;
+  // The URL is the source of truth, so filtered views can be shared and the back button works.
+  // A category has its own page, /menu/<slug>, that search engines can index.
+  const { slug } = useParams<{ slug?: string }>();
+  const navigate = useNavigate();
+  const legacyCategoryId = searchParams.get('category');
   const vegOnly = searchParams.get('veg') === '1';
   const sort = parseSort(searchParams.get('sort'));
   const urlSearch = searchParams.get('q') || '';
 
-  // Category State from Database
-  const [categories, setCategories] = useState<Category[]>(categoriesCache || []);
-  const [loadingCategories, setLoadingCategories] = useState(!categoriesCache);
+  // Categories from the database (shared cache)
+  const { categories, loading: loadingCategories } = useFoodCategories();
+  const { settings } = useSettings();
+  const hotelName = settings?.hotel_name?.trim() || 'Hotel Atithi';
+  const hotelCity = settings?.hotel_city?.trim() || 'Raichur';
   const [categoryProductCounts, setCategoryProductCounts] = useState<Record<string, number>>(
     categoryCountsCache || {}
   );
@@ -114,37 +122,6 @@ export const HomePage: React.FC = () => {
     },
     [setSearchParams]
   );
-
-  // 1. Fetch Existing Food Categories from database
-  useEffect(() => {
-    let isCancelled = false;
-    const fetchCategories = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('categories')
-          .select('*')
-          .eq('type', 'food')
-          .eq('is_active', true)
-          .order('sort_order', { ascending: true });
-
-        if (!error && data && !isCancelled) {
-          categoriesCache = data;
-          setCategories(data);
-        }
-      } catch (err) {
-        console.error('Error fetching categories:', err);
-      } finally {
-        if (!isCancelled) {
-          setLoadingCategories(false);
-        }
-      }
-    };
-
-    fetchCategories();
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
 
   // 2. Fetch Category Product Counts in background for item count badges (one tiny column only)
   useEffect(() => {
@@ -194,13 +171,42 @@ export const HomePage: React.FC = () => {
     }
   }, [urlSearch]);
 
+  // Currently selected category (from the /menu/<slug> address)
+  const activeCategory = useMemo(() => {
+    if (!slug) return null;
+    return categories.find((c) => slugify(c.name) === slug) || null;
+  }, [categories, slug]);
+  const selectedCategoryId = activeCategory?.id ?? null;
+  const categoryNotFound = !!slug && !loadingCategories && !activeCategory;
+
+  // Only the Veg filter and the sort carry over between the menu and a category page
+  const filterQuery = () => {
+    const keep = new URLSearchParams();
+    if (vegOnly) keep.set('veg', '1');
+    if (sort !== 'recommended') keep.set('sort', sort);
+    const qs = keep.toString();
+    return qs ? `?${qs}` : '';
+  };
+
+  // Old links (/?category=<id>) move to the category's own page
+  useEffect(() => {
+    if (!legacyCategoryId || loadingCategories) return;
+    const cat = categories.find((c) => c.id === legacyCategoryId);
+    const rest = new URLSearchParams(window.location.search);
+    rest.delete('category');
+    const qs = rest.toString();
+    navigate(`${cat ? categoryPath(cat.name) : '/'}${qs ? `?${qs}` : ''}`, { replace: true });
+  }, [legacyCategoryId, loadingCategories, categories, navigate]);
+
   const cleanSearch = sanitizeSearch(urlSearch);
   const isSearching = cleanSearch.length >= MIN_SEARCH_LENGTH;
-  const showDishes = isSearching || !!selectedCategoryId;
+  const showDishes = isSearching || !!slug;
+  // The category page is open but the category list is still loading
+  const resolvingCategory = !!slug && !activeCategory && loadingCategories && !isSearching;
 
   // 5. Paginated dishes: search spans the whole menu, otherwise the selected category
   const menuQuery = useMemo<MenuQuery | null>(() => {
-    if (!showDishes) return null;
+    if (!showDishes || (!isSearching && !selectedCategoryId)) return null;
     return {
       categoryId: isSearching ? null : selectedCategoryId,
       search: isSearching ? cleanSearch : '',
@@ -229,20 +235,17 @@ export const HomePage: React.FC = () => {
   const prefetchCategory = (catId: string) =>
     prefetchMenuProducts({ categoryId: catId, search: '', vegOnly, sort });
 
-  // Helper to open a category
-  const handleSelectCategory = (catId: string) => {
+  // Opening a category is a real link (crawlable); just reset the search box
+  const handleOpenCategory = () => {
     lastWrittenSearchRef.current = '';
     setSearchInput('');
-    updateParams({ category: catId, q: null });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Helper to return to Food Categories list
   const handleBackToCategories = () => {
     lastWrittenSearchRef.current = '';
     setSearchInput('');
-    updateParams({ category: null, q: null });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate(`/${filterQuery()}`);
   };
 
   const clearSearch = () => {
@@ -252,15 +255,9 @@ export const HomePage: React.FC = () => {
     searchInputRef.current?.focus();
   };
 
-  // Currently selected category object
-  const activeCategory = useMemo(() => {
-    if (!selectedCategoryId) return null;
-    return categories.find((c) => c.id === selectedCategoryId) || null;
-  }, [categories, selectedCategoryId]);
-
   const listTitle = isSearching
     ? `Results for “${cleanSearch}”`
-    : activeCategory?.name || 'Dishes';
+    : activeCategory?.name || (categoryNotFound ? 'Category not found' : 'Dishes');
   const dishCount = total ?? products.length;
 
   return (
@@ -351,10 +348,11 @@ export const HomePage: React.FC = () => {
                 {categories.map((cat) => {
                   const isActive = cat.id === selectedCategoryId;
                   return (
-                    <button
+                    <Link
                       key={`pill-${cat.id}`}
-                      type="button"
-                      onClick={() => handleSelectCategory(cat.id)}
+                      to={`${categoryPath(cat.name)}${filterQuery()}`}
+                      replace
+                      onClick={handleOpenCategory}
                       onPointerEnter={() => prefetchCategory(cat.id)}
                       aria-current={isActive ? 'true' : undefined}
                       className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
@@ -364,7 +362,7 @@ export const HomePage: React.FC = () => {
                       }`}
                     >
                       {cat.name}
-                    </button>
+                    </Link>
                   );
                 })}
               </>
@@ -430,9 +428,10 @@ export const HomePage: React.FC = () => {
                 const aboveFold = index < 5;
 
                 return (
-                  <button
+                  <Link
                     key={category.id}
-                    onClick={() => handleSelectCategory(category.id)}
+                    to={`${categoryPath(category.name)}${filterQuery()}`}
+                    onClick={handleOpenCategory}
                     onPointerEnter={() => prefetchCategory(category.id)}
                     onTouchStart={() => prefetchCategory(category.id)}
                     onFocus={() => prefetchCategory(category.id)}
@@ -473,7 +472,7 @@ export const HomePage: React.FC = () => {
                         <ChevronRight className="w-3.5 h-3.5 text-orange-400 group-hover:translate-x-0.5 transition-transform" />
                       </div>
                     </div>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
@@ -483,7 +482,8 @@ export const HomePage: React.FC = () => {
         /* =========================================================================
            VIEW 2: DISHES (selected category or search results), paginated
            ========================================================================= */
-        <section className="space-y-4" aria-busy={loading}>
+        <section className="space-y-4" aria-busy={loading || resolvingCategory}>
+          {activeCategory && !isSearching && <CategorySeo category={activeCategory} />}
           {/* Title row */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
@@ -499,14 +499,32 @@ export const HomePage: React.FC = () => {
                 {listTitle}
               </h1>
             </div>
-            {!loading && !error && (
+            {!loading && !resolvingCategory && !categoryNotFound && !error && (
               <span className="shrink-0 px-3 py-1 rounded-full text-xs font-extrabold bg-orange-500 text-white shadow-2xs">
                 {dishCount} {dishCount === 1 ? 'dish' : 'dishes'}
               </span>
             )}
           </div>
 
-          {loading ? (
+          {activeCategory && !isSearching && (
+            <p className="-mt-2 text-xs sm:text-sm text-stone-500 font-medium">
+              Order {activeCategory.name} online from {hotelName}, {hotelCity}. Home delivery, no delivery charge.
+            </p>
+          )}
+
+          {categoryNotFound && !isSearching ? (
+            <div className="py-14 text-center bg-white rounded-2xl border border-stone-200 p-8 max-w-md mx-auto space-y-3">
+              <SearchX className="w-12 h-12 text-stone-300 mx-auto" />
+              <h3 className="font-display font-bold text-stone-900 text-base">This menu category is not available</h3>
+              <p className="text-stone-500 text-xs">It may have been renamed or removed. Have a look at the full menu.</p>
+              <button
+                onClick={handleBackToCategories}
+                className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+              >
+                See full menu
+              </button>
+            </div>
+          ) : loading || resolvingCategory ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
               {Array.from({ length: 8 }, (_, i) => (
                 <ProductCardSkeleton key={i} />

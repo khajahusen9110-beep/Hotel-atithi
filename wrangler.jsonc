@@ -1,12 +1,17 @@
-// Cloudflare Workers deploy config (Workers Builds runs `npx wrangler deploy` after `npm run build`).
-// The app is a static Vite SPA: no Worker script, just the built files in ./dist.
+// Cloudflare Workers deploy config (Workers Builds runs `npx wrangler versions upload` after `npm run build`).
+// The app is a static Vite SPA served from ./dist. A small Worker (worker/index.ts) only
+// answers /sitemap.xml, building it live from Supabase so new menu categories are listed.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "hotel-atithi",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
-    // Unknown paths (/cart, /order/123, ...) serve index.html so React Router can handle them
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    // Unknown paths (/cart, /menu/biryani, /order/123, ...) serve index.html so React Router can handle them
+    "not_found_handling": "single-page-application",
+    // Static files win over the Worker, except the live sitemap
+    "run_worker_first": ["/sitemap.xml"]
   }
 }

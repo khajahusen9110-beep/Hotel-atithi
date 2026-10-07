@@ -1,11 +1,15 @@
 import React from 'react';
 import { Utensils, MapPin, Phone, Clock, ShieldCheck, Heart, Mail, MessageCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
+import { useFoodCategories } from '../hooks/useFoodCategories';
+import { categoryPath } from '../utils/slug';
 import { groupWeeklyHours } from '../utils/storeHours';
 import { telHref, whatsappHref } from '../utils/contact';
 
 export const Footer: React.FC = () => {
   const { settings, todayHoursText, storeHours } = useSettings();
+  const { categories } = useFoodCategories();
   // Every detail here comes from the admin Settings page
   const name = settings?.hotel_name?.trim() || 'Hotel Atithi';
   const city = settings?.hotel_city?.trim() || 'Raichur';
@@ -134,6 +138,25 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
         </div>
+
+        {/* Our Menu: a link to every category page (also how search engines find them) */}
+        {categories.length > 0 && (
+          <nav aria-label="Menu categories" className="pt-8 pb-8 border-t border-stone-800/80">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-stone-100 flex items-center gap-1.5 mb-3">
+              <Utensils className="w-4 h-4 text-amber-400" />
+              Our Menu in {city}
+            </h4>
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+              {categories.map((c) => (
+                <li key={c.id}>
+                  <Link to={categoryPath(c.name)} className="text-stone-400 hover:text-white transition-colors">
+                    {c.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
 
         <div className="pt-8 border-t border-stone-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
           <p>© {new Date().getFullYear()} {name}. All rights reserved.</p>

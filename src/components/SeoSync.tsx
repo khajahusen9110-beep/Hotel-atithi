@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import { toE164India } from '../utils/contact';
 
@@ -19,6 +20,9 @@ const setMeta = (selector: string, attr: 'content', value: string) => {
 
 export const SeoSync: React.FC = () => {
   const { settings, storeHours, loading } = useSettings();
+  const { pathname } = useLocation();
+  // Category pages (/menu/<slug>) set their own title
+  const ownsTitle = !pathname.startsWith('/menu/');
 
   useEffect(() => {
     if (loading || !settings) return;
@@ -91,8 +95,8 @@ export const SeoSync: React.FC = () => {
     setMeta('meta[name="geo.placename"]', 'content', `${city}, Karnataka`);
 
     const title = `${name} ${city} - Order Food Online | Biryani, Tandoori & Chinese Delivery`;
-    if (document.title !== title) document.title = title;
-  }, [settings, storeHours, loading]);
+    if (ownsTitle && document.title !== title) document.title = title;
+  }, [settings, storeHours, loading, ownsTitle]);
 
   return null;
 };

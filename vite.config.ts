@@ -1,13 +1,30 @@
-import { defineConfig } from 'vite';
+import { writeFileSync } from 'node:fs';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// Hands the public Supabase address + anon key (already in the website bundle) to the
+// Cloudflare Worker that builds /sitemap.xml live (worker/index.ts). Written on every
+// build because Cloudflare runs `npm run build` before uploading the Worker.
+const sitemapWorkerConfig = (): Plugin => ({
+  name: 'sitemap-worker-config',
+  apply: 'build',
+  configResolved(config) {
+    const env = loadEnv(config.mode, process.cwd(), 'VITE_');
+    writeFileSync(
+      new URL('./worker/supabase-config.generated.json', import.meta.url),
+      JSON.stringify({ url: env.VITE_SUPABASE_URL || '', anonKey: env.VITE_SUPABASE_ANON_KEY || '' }, null, 2) + '\n'
+    );
+  },
+});
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    sitemapWorkerConfig(),
     // Installable app + offline app shell. Menu, prices, stock and orders always come
     // live from Supabase (never cached), so a customer can never see stale prices.
     // Dish photos are left to the browser's HTTP cache: caching them here would need
