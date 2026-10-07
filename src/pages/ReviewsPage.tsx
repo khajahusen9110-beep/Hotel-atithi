@@ -19,41 +19,8 @@ export const ReviewsPage: React.FC = () => {
         if (!error && data && data.length > 0) {
           setReviews(data);
         } else {
-          // Fallback realistic authentic pure veg customer reviews
-          setReviews([
-            {
-              id: 'r1',
-              order_id: 'o1',
-              customer_id: 'c1',
-              rating: 5,
-              comment: 'The Paneer Butter Masala had the most heavenly gravy! Pure desi ghee flavor and fresh buttery rotis.',
-              created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-            },
-            {
-              id: 'r2',
-              order_id: 'o2',
-              customer_id: 'c2',
-              rating: 5,
-              comment: 'Ordered farm tomatoes and fresh palak. Arrived crisp and fresh as if plucked right from the field this morning. Very impressed!',
-              created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
-            },
-            {
-              id: 'r3',
-              order_id: 'o3',
-              customer_id: 'c3',
-              rating: 5,
-              comment: 'Best pure vegetarian food in town. Live delivery tracking was spot-on and rider arrived in 25 mins.',
-              created_at: new Date(Date.now() - 3600000 * 72).toISOString(),
-            },
-            {
-              id: 'r4',
-              order_id: 'o4',
-              customer_id: 'c4',
-              rating: 4,
-              comment: 'Dal Tadka was aromatic and not excessively oily. Perfect home-cooked feel. Will definitely order again.',
-              created_at: new Date(Date.now() - 3600000 * 96).toISOString(),
-            },
-          ]);
+          // No reviews yet: show the empty state instead of made-up testimonials
+          setReviews([]);
         }
       } catch (e) {
         console.warn('Error fetching reviews:', e);
@@ -68,7 +35,7 @@ export const ReviewsPage: React.FC = () => {
   const averageRating =
     reviews.length > 0
       ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
-      : '4.9';
+      : '–';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-24 text-xs">
@@ -83,7 +50,7 @@ export const ReviewsPage: React.FC = () => {
             Customer Reviews & Ratings
           </h1>
           <p className="text-stone-500 max-w-md">
-            Real feedback from pure-veg food enthusiasts and daily fresh vegetable patrons across the city.
+            Real feedback from customers who ordered from Hotel Atithi.
           </p>
         </div>
 
@@ -107,6 +74,12 @@ export const ReviewsPage: React.FC = () => {
         <div className="py-20 flex flex-col items-center justify-center gap-3 text-stone-400">
           <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
           <span className="text-xs font-semibold">Loading guest feedback...</span>
+        </div>
+      ) : reviews.length === 0 ? (
+        <div className="py-16 text-center space-y-2 bg-white rounded-3xl border border-stone-200">
+          <MessageSquare className="w-8 h-8 text-stone-300 mx-auto" />
+          <p className="font-bold text-stone-700 text-sm">No reviews yet</p>
+          <p className="text-stone-500">Order from us and be the first to share your experience.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

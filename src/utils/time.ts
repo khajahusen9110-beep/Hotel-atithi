@@ -1,3 +1,5 @@
+import { getCurrentMinutesInIST } from './productAvailability';
+
 export function isStoreCurrentlyOpen(
   isStoreOpenSetting: boolean | undefined = true,
   openingTime?: string,
@@ -7,9 +9,8 @@ export function isStoreCurrentlyOpen(
   if (!openingTime || !closingTime) return true;
 
   try {
-    const now = new Date();
-    // Use current hours and minutes
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    // Store hours are in IST regardless of the customer's device timezone
+    const currentMinutes = getCurrentMinutesInIST();
 
     const [openH, openM] = openingTime.split(':').map(Number);
     const [closeH, closeM] = closingTime.split(':').map(Number);

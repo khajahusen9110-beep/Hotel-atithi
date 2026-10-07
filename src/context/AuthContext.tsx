@@ -69,14 +69,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchProfile(session.user.id);
       }
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
 
+    // Do NOT await Supabase calls inside this callback: supabase-js holds an auth
+    // lock while it runs, so awaiting another query here can deadlock the client.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          const uid = session.user.id;
+          setTimeout(() => {
+            fetchProfile(uid);
+          }, 0);
         } else {
           setProfile(null);
         }
@@ -182,9 +187,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) return { error: new Error('Not logged in') };
+    // Only allow customer-editable fields; never send role/id from the client.
+    const safeUpdates: Partial<Profile> = {};
+    if (updates.name !== undefined) safeUpdates.name = updates.name.trim();
+    if (updates.email !== undefined) safeUpdates.email = updates.email.trim();
+    if (updates.phone !== undefined) safeUpdates.phone = updates.phone.trim();
     const { data, error } = await supabase
       .from('profiles')
-      .update(updates)
+      .update(safeUpdates)
       .eq('id', user.id)
       .select()
       .single();

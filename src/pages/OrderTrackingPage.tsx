@@ -5,6 +5,8 @@ import { Order, OrderStatus } from '../types/database';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { ReviewModal } from '../components/ReviewModal';
+import { useToast } from '../context/ToastContext';
+import { startRazorpayPayment } from '../utils/razorpay';
 import {
   CheckCircle2,
   Clock,
@@ -64,6 +66,8 @@ export const OrderTrackingPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+  const { success, error: toastError } = useToast();
 
   const fetchOrder = async (isManual = false) => {
     if (!orderId) return;
@@ -151,6 +155,32 @@ export const OrderTrackingPage: React.FC = () => {
     );
   }
 
+  const needsOnlinePayment =
+    order.payment_gateway === 'razorpay' &&
+    order.payment_status !== 'paid' &&
+    order.status !== 'cancelled' &&
+    order.status !== 'delivered';
+
+  const handleRetryPayment = async () => {
+    setIsPaying(true);
+    try {
+      const outcome = await startRazorpayPayment({
+        orderId: order.id,
+        orderLabel: `Order #${order.order_number || order.id.slice(0, 8)}`,
+        prefill: {
+          name: order.address?.recipient_name || order.customer_name,
+          contact: order.address?.phone || order.customer_phone,
+          email: user?.email,
+        },
+      });
+      if (outcome.status === 'paid') success('Payment received! Order confirmed.');
+      else if (outcome.status === 'failed' || outcome.status === 'verification_pending') toastError(outcome.message);
+    } finally {
+      setIsPaying(false);
+      fetchOrder();
+    }
+  };
+
   const currentStepIndex = STATUS_STEPS.findIndex((s) => s.status === order.status);
   const isCancelled = order.status === 'cancelled';
 
@@ -210,6 +240,27 @@ export const OrderTrackingPage: React.FC = () => {
           <span>Refresh Status</span>
         </button>
       </div>
+
+      {needsOnlinePayment && (
+        <div className="bg-amber-50 rounded-3xl border border-amber-200 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="font-bold text-amber-900 text-sm">Payment pending</p>
+            <p className="text-[11px] text-amber-800">
+              {order.payment_status === 'failed'
+                ? 'Your last payment attempt failed. Complete payment to confirm this order.'
+                : 'Complete the online payment to confirm this order.'}
+            </p>
+          </div>
+          <button
+            onClick={handleRetryPayment}
+            disabled={isPaying}
+            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
+          >
+            {isPaying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
+            <span>Pay ₹{order.total ?? order.total_amount ?? ''} Now</span>
+          </button>
+        </div>
+      )}
 
       {/* Live Stepper Tracker */}
       <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-xs space-y-6">
