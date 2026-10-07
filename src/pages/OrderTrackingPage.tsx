@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Order, OrderStatus } from '../types/database';
 import { useAuth } from '../context/AuthContext';
-import { useSettings } from '../context/SettingsContext';
 import { ReviewModal } from '../components/ReviewModal';
 import { useToast } from '../context/ToastContext';
 import {
@@ -59,7 +58,6 @@ const STATUS_STEPS: { status: OrderStatus; label: string; icon: any; desc: strin
 export const OrderTrackingPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const { user } = useAuth();
-  const { settings } = useSettings();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -394,8 +392,8 @@ export const OrderTrackingPage: React.FC = () => {
           </h2>
 
           {(() => {
-            const taxPercent = order.tax_percent ?? (settings?.tax_percent !== undefined ? Number(settings.tax_percent) : 5);
-            const taxAmount = order.tax_amount ?? order.tax ?? 0;
+            const taxAmount = Number(order.tax_amount ?? order.tax ?? 0);
+            const deliveryFee = Number(order.delivery_fee ?? 0);
             const discountAmount = order.discount_amount ?? 0;
             const totalAmount = order.total ?? order.total_amount ?? 0;
             const itemsList = order.items || order.order_items || [];
@@ -426,20 +424,19 @@ export const OrderTrackingPage: React.FC = () => {
                     <span>-₹{discountAmount}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span>GST ({taxPercent}%)</span>
-                  <span className="font-bold text-stone-900">₹{taxAmount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Delivery Charge</span>
-                  <span>
-                    {order.delivery_fee === 0 ? (
-                      <span className="text-emerald-600 font-bold">FREE</span>
-                    ) : (
-                      <span className="font-bold text-stone-900">₹{order.delivery_fee}</span>
-                    )}
-                  </span>
-                </div>
+                {/* GST / delivery fee are no longer charged; shown only on older orders that had them */}
+                {taxAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span>GST</span>
+                    <span className="font-bold text-stone-900">₹{taxAmount}</span>
+                  </div>
+                )}
+                {deliveryFee > 0 && (
+                  <div className="flex justify-between">
+                    <span>Delivery Charge</span>
+                    <span className="font-bold text-stone-900">₹{deliveryFee}</span>
+                  </div>
+                )}
                 <div className="pt-2 border-t border-stone-100 flex justify-between font-bold text-stone-900 text-sm">
                   <span>Total Amount</span>
                   <span>₹{totalAmount}</span>

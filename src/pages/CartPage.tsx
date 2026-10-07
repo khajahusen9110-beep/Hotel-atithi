@@ -9,7 +9,6 @@ import {
   Trash2,
   ArrowRight,
   Utensils,
-  Truck,
   Receipt,
   FileText,
   AlertTriangle,
@@ -17,6 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getProductAvailability } from '../utils/productAvailability';
+import { FALLBACK_FOOD_IMAGE, imageSrcSet, sizedImageUrl } from '../utils/image';
 
 export const CartPage: React.FC = () => {
   const { items, updateQuantity, removeFromCart, clearCart, subtotal } = useCart();
@@ -27,13 +27,8 @@ export const CartPage: React.FC = () => {
   const [deliveryInstructions, setDeliveryInstructions] = useState('');
 
   const minOrder = settings?.min_order_amount || 149;
-  const freeThreshold = settings?.free_delivery_above || settings?.free_delivery_threshold || 500;
-  const deliveryBase = settings?.delivery_fee || settings?.delivery_fee_base || 30;
-  const deliveryFee = subtotal >= freeThreshold ? 0 : deliveryBase;
-
-  const taxPercent = settings?.tax_percent !== undefined ? Number(settings.tax_percent) : 5;
-  const tax = Math.round((subtotal * taxPercent) / 100);
-  const grandTotal = subtotal + deliveryFee + tax;
+  // No GST and no delivery fee: the order total is the items subtotal (matches the database)
+  const grandTotal = subtotal;
 
   const isMinOrderMet = subtotal >= minOrder;
 
@@ -122,8 +117,20 @@ export const CartPage: React.FC = () => {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <img
-                      src={product.image_url}
+                      src={sizedImageUrl(product.image_url || FALLBACK_FOOD_IMAGE, 56)}
+                      srcSet={imageSrcSet(product.image_url || FALLBACK_FOOD_IMAGE, 56)}
                       alt={product.name}
+                      width={56}
+                      height={56}
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        if (img.src !== FALLBACK_FOOD_IMAGE) {
+                          img.srcset = '';
+                          img.src = FALLBACK_FOOD_IMAGE;
+                        }
+                      }}
                       className={`w-14 h-14 rounded-2xl object-cover bg-stone-100 shrink-0 ${
                         !avail.isAvailable ? 'opacity-70 grayscale-30' : ''
                       }`}
@@ -230,31 +237,6 @@ export const CartPage: React.FC = () => {
                 <span>Items Subtotal</span>
                 <span className="font-bold text-stone-900">₹{subtotal}</span>
               </div>
-
-              <div className="flex justify-between">
-                <span className="flex items-center gap-1">
-                  <Truck className="w-3.5 h-3.5 text-stone-400" />
-                  Delivery Charge
-                </span>
-                <span>
-                  {deliveryFee === 0 ? (
-                    <span className="text-emerald-600 font-bold">FREE</span>
-                  ) : (
-                    <span className="font-bold text-stone-900">₹{deliveryFee}</span>
-                  )}
-                </span>
-              </div>
-
-              <div className="flex justify-between">
-                <span>GST ({taxPercent}%)</span>
-                <span className="font-bold text-stone-900">₹{tax}</span>
-              </div>
-
-              {subtotal < freeThreshold && (
-                <div className="p-2.5 rounded-xl bg-amber-50 text-amber-900 text-[11px] font-medium">
-                  Add items worth ₹{freeThreshold - subtotal} more for <strong className="font-bold">FREE Delivery</strong>!
-                </div>
-              )}
 
               <div className="pt-3 border-t border-stone-100 flex justify-between text-stone-900 font-display font-bold text-base">
                 <span>Total Amount</span>

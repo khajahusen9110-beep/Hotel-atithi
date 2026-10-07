@@ -9,6 +9,8 @@ interface SettingsContextType {
   isOpen: boolean;
   todayHoursText: string;
   todayStoreHours: StoreHours | null;
+  /** All 7 days, for structured data (empty until loaded) */
+  storeHours: StoreHours[];
   refetchSettings: () => Promise<void>;
 }
 
@@ -17,19 +19,21 @@ const defaultSettings: Settings = {
   is_store_open: true,
   opening_time: '07:00',
   closing_time: '23:00',
-  announcement: 'Welcome to Hotel Atithi! Delicious pure veg & non-veg dining delivered fast.',
+  announcement: 'Welcome to Hotel Atithi! Delicious veg & non-veg food delivered fast.',
   min_order_amount: 149,
-  delivery_fee_base: 30,
-  delivery_fee: 30,
-  delivery_fee_per_km: 10,
+  delivery_fee_base: 0,
+  delivery_fee: 0,
+  delivery_fee_per_km: 0,
   free_delivery_threshold: 500,
   free_delivery_above: 500,
-  hotel_latitude: 15.806135,
-  hotel_longitude: 76.765092,
+  // Shown only until the admin settings load; the real values come from the database
+  hotel_latitude: 16.2111455,
+  hotel_longitude: 77.3572712,
   hotel_name: 'Hotel Atithi',
-  hotel_address: 'NH150A, Bassapura, Sindhanur, Raichur, Karnataka 584128',
+  hotel_address: 'Raichur, Karnataka',
+  hotel_city: 'Raichur',
   hotel_phone: '',
-  tax_percent: 5,
+  tax_percent: 0,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -39,41 +43,40 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState<boolean>(true);
   const [todayStoreHours, setTodayStoreHours] = useState<StoreHours | null>(null);
+  const [storeHours, setStoreHours] = useState<StoreHours[]>([]);
   const [todayHoursText, setTodayHoursText] = useState<string>('Hours: 7:00 AM - 11:00 PM');
 
   const fetchSettings = async () => {
     try {
-      // 1. Fetch settings row
-      const { data, error } = await supabase
-        .from('settings')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+      // The three queries are independent: run them in parallel instead of one after another
+      const [settingsRes, openRes, hoursRes] = await Promise.allSettled([
+        supabase.from('settings').select('*').limit(1).maybeSingle(),
+        supabase.rpc('is_store_open_now'),
+        supabase.from('store_hours').select('*'),
+      ]);
 
-      if (!error && data) {
+      // 1. Settings row
+      const data =
+        settingsRes.status === 'fulfilled' && !settingsRes.value.error ? settingsRes.value.data : null;
+      if (data) {
         setSettings(data);
       }
 
-      // 2. Query is_store_open_now() RPC
-      try {
-        const { data: openRpc, error: rpcError } = await supabase.rpc('is_store_open_now');
-        if (!rpcError && typeof openRpc === 'boolean') {
-          setIsOpen(openRpc);
-        } else if (data) {
-          setIsOpen(data.is_store_open ?? true);
-        }
-      } catch (rpcErr) {
-        console.warn('is_store_open_now RPC error:', rpcErr);
+      // 2. is_store_open_now() RPC
+      if (openRes.status === 'fulfilled' && !openRes.value.error && typeof openRes.value.data === 'boolean') {
+        setIsOpen(openRes.value.data);
+      } else {
+        if (openRes.status === 'rejected') console.warn('is_store_open_now RPC error:', openRes.reason);
         if (data) setIsOpen(data.is_store_open ?? true);
       }
 
-      // 3. Query store_hours table for today's hours
-      try {
-        const { data: hoursData, error: hoursError } = await supabase
-          .from('store_hours')
-          .select('*');
-
+      // 3. store_hours table for today's hours
+      if (hoursRes.status === 'rejected') {
+        console.warn('store_hours table query error:', hoursRes.reason);
+      } else {
+        const { data: hoursData, error: hoursError } = hoursRes.value;
         if (!hoursError && hoursData && hoursData.length > 0) {
+          setStoreHours(hoursData as StoreHours[]);
           const currentDay = getCurrentDayOfWeekIST();
           const today = hoursData.find((h: StoreHours) => h.day_of_week === currentDay);
           if (today) {
@@ -92,8 +95,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const closeFmt = formatTime12Hour(data.closing_time || '22:00:00');
           setTodayHoursText(`Hours: ${openFmt} - ${closeFmt}`);
         }
-      } catch (hoursErr) {
-        console.warn('store_hours table query error:', hoursErr);
       }
     } catch (e) {
       console.warn('Error loading settings from DB, using fallback defaults:', e);
@@ -117,6 +118,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isOpen,
         todayHoursText,
         todayStoreHours,
+        storeHours,
         refetchSettings: fetchSettings,
       }}
     >

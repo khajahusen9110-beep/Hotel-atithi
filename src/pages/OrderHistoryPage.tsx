@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Order } from '../types/database';
 import { useAuth } from '../context/AuthContext';
-import { useSettings } from '../context/SettingsContext';
 import {
   Clock,
   ArrowRight,
@@ -18,51 +17,99 @@ import {
   Receipt,
 } from 'lucide-react';
 
+const ORDERS_PAGE_SIZE = 10;
+
 export const OrderHistoryPage: React.FC = () => {
   const { user } = useAuth();
-  const { settings } = useSettings();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  // Offset in raw rows; empty order shells are hidden client-side, so it can differ from orders.length
+  const nextOffsetRef = useRef(0);
+
+  const fetchPage = useCallback(
+    async (offset: number) => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('customer_id', user.id)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(offset, offset + ORDERS_PAGE_SIZE - 1);
+      if (error) throw error;
+
+      const rows = data || [];
+      // Filter out any incomplete or orphan orders with 0 items and ₹0 total
+      const validOrders = rows
+        .map((o) => ({
+          ...o,
+          items: o.order_items || o.items || [],
+        }))
+        .filter((o) => {
+          const hasItems = Array.isArray(o.items) && o.items.length > 0;
+          const total = Number(o.total ?? o.total_amount ?? 0);
+          return hasItems || total > 0;
+        });
+      return { validOrders, rawCount: rows.length };
+    },
+    [user]
+  );
 
   useEffect(() => {
+    let isCancelled = false;
     const fetchOrders = async () => {
       if (!user) {
         setLoading(false);
         return;
       }
 
+      setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('*, order_items(*)')
-          .eq('customer_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(25);
-
-        if (!error && data) {
-          // Filter out any incomplete or orphan orders with 0 items and ₹0 total
-          const validOrders = data
-            .map((o) => ({
-              ...o,
-              items: o.order_items || o.items || [],
-            }))
-            .filter((o) => {
-              const hasItems = Array.isArray(o.items) && o.items.length > 0;
-              const total = Number(o.total ?? o.total_amount ?? 0);
-              return hasItems || total > 0;
-            });
-          setOrders(validOrders);
-        }
+        const page = await fetchPage(0);
+        if (isCancelled || !page) return;
+        nextOffsetRef.current = page.rawCount;
+        setOrders(page.validOrders);
+        setHasMore(page.rawCount === ORDERS_PAGE_SIZE);
+        setLoadError(false);
       } catch (e) {
         console.warn('Error fetching order history:', e);
+        if (!isCancelled) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     };
 
     fetchOrders();
-  }, [user]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [user, fetchPage, reloadKey]);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await fetchPage(nextOffsetRef.current);
+      if (!page) return;
+      nextOffsetRef.current += page.rawCount;
+      setOrders((prev) => {
+        const seen = new Set(prev.map((o) => o.id));
+        return prev.concat(page.validOrders.filter((o) => !seen.has(o.id)));
+      });
+      setHasMore(page.rawCount === ORDERS_PAGE_SIZE);
+      setLoadError(false);
+    } catch (e) {
+      console.warn('Error fetching more orders:', e);
+      setLoadError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -93,6 +140,21 @@ export const OrderHistoryPage: React.FC = () => {
     );
   }
 
+  if (orders.length === 0 && loadError) {
+    return (
+      <div className="py-20 text-center max-w-md mx-auto space-y-4 px-4 text-xs">
+        <h2 className="font-display font-bold text-xl text-stone-900">Could not load your orders</h2>
+        <p className="text-stone-500">Please check your internet connection and try again.</p>
+        <button
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="inline-block px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-xs cursor-pointer"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   if (orders.length === 0) {
     return (
       <div className="py-20 text-center max-w-md mx-auto space-y-4 px-4 text-xs">
@@ -101,7 +163,7 @@ export const OrderHistoryPage: React.FC = () => {
         </div>
         <h2 className="font-display font-bold text-xl text-stone-900">No Orders Yet</h2>
         <p className="text-stone-500">
-          You haven't placed any orders with Hotel Atithi yet. Treat yourself to fresh food or farm produce!
+          You haven't placed any orders with Hotel Atithi yet. Treat yourself to something delicious!
         </p>
         <Link
           to="/"
@@ -120,7 +182,8 @@ export const OrderHistoryPage: React.FC = () => {
           Your Orders
         </h1>
         <p className="text-stone-500">
-          {orders.length} {orders.length === 1 ? 'order' : 'orders'} placed with Hotel Atithi
+          {orders.length}
+          {hasMore ? '+' : ''} {orders.length === 1 && !hasMore ? 'order' : 'orders'} placed with Hotel Atithi
         </p>
       </div>
 
@@ -235,24 +298,19 @@ export const OrderHistoryPage: React.FC = () => {
                     <span>-₹{order.discount_amount}</span>
                   </div>
                 ) : null}
-                <div className="flex justify-between">
-                  <span>
-                    GST ({order.tax_percent ?? (settings?.tax_percent !== undefined ? Number(settings.tax_percent) : 5)}%)
-                  </span>
-                  <span className="font-bold text-stone-900">
-                    ₹{order.tax_amount ?? order.tax ?? 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Delivery Charge</span>
-                  <span>
-                    {order.delivery_fee === 0 ? (
-                      <span className="text-emerald-600 font-bold">FREE</span>
-                    ) : (
-                      <span className="font-bold text-stone-900">₹{order.delivery_fee}</span>
-                    )}
-                  </span>
-                </div>
+                {/* GST / delivery fee are no longer charged; shown only on older orders that had them */}
+                {Number(order.tax_amount ?? order.tax ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>GST</span>
+                    <span className="font-bold text-stone-900">₹{order.tax_amount ?? order.tax}</span>
+                  </div>
+                )}
+                {Number(order.delivery_fee ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>Delivery Charge</span>
+                    <span className="font-bold text-stone-900">₹{order.delivery_fee}</span>
+                  </div>
+                )}
                 <div className="pt-1.5 border-t border-stone-200 flex justify-between font-bold text-stone-900 text-xs">
                   <span>Total Amount</span>
                   <span>₹{order.total ?? order.total_amount}</span>
@@ -288,6 +346,20 @@ export const OrderHistoryPage: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {(hasMore || loadError) && (
+        <div className="flex flex-col items-center gap-2">
+          {loadError && <p className="text-rose-600 font-semibold">Could not load orders. Please try again.</p>}
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-stone-200 hover:border-amber-300 hover:bg-amber-50/50 text-stone-700 font-bold transition-all cursor-pointer disabled:opacity-60"
+          >
+            {loadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {loadingMore ? 'Loading…' : loadError ? 'Retry' : 'Load older orders'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

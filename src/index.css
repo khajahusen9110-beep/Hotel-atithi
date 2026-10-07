@@ -7,14 +7,14 @@
   }
 
   body {
-    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.012em;
   }
 
   h1, h2, h3, h4, h5, h6, .font-display {
-    font-family: 'Outfit', 'Poppins', sans-serif;
+    font-family: 'Outfit', system-ui, sans-serif;
     letter-spacing: -0.025em;
   }
 

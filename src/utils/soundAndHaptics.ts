@@ -3,7 +3,8 @@
 
 class SoundAndHapticsController {
   private audioCtx: AudioContext | null = null;
-  private soundEnabled: boolean = true;
+  // Off by default: customers opt in from their profile (unexpected sounds feel spammy)
+  private soundEnabled: boolean = false;
   private hapticsEnabled: boolean = true;
   private isInitialized: boolean = false;
 
@@ -250,59 +251,17 @@ class SoundAndHapticsController {
   }
 
   // --- GLOBAL EVENT LISTENER ---
-  // Hooks into every clickable element across the entire application
+  // Unlocks Web Audio on the first tap anywhere in the app
   public initGlobalListeners() {
     if (this.isInitialized || typeof window === 'undefined') return;
     this.isInitialized = true;
 
-    const handleInteraction = (e: Event) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-
-      // Resume AudioContext on first touch/click
+    // Browsers keep audio locked until the first user gesture, so unlock it here.
+    // Cart actions trigger their own sound/haptics from CartContext; ordinary taps
+    // (links, tabs, filters) intentionally get none, like the big delivery apps.
+    const handleInteraction = () => {
       if (this.audioCtx && this.audioCtx.state === 'suspended') {
         this.audioCtx.resume().catch(() => {});
-      }
-
-      // Check if target or any parent is interactive
-      const interactiveEl = target.closest(
-        'button, a, [role="button"], [role="tab"], input[type="submit"], input[type="button"], input[type="checkbox"], input[type="radio"], select, .cursor-pointer, [data-interactive="true"]'
-      );
-
-      if (!interactiveEl) return;
-
-      // Check if disabled
-      if (
-        interactiveEl.hasAttribute('disabled') ||
-        interactiveEl.getAttribute('aria-disabled') === 'true'
-      ) {
-        return;
-      }
-
-      // Check if it's an Add-To-Cart or Quantity button
-      const textContent = (interactiveEl.textContent || '').trim().toLowerCase();
-      const ariaLabel = (interactiveEl.getAttribute('aria-label') || '').toLowerCase();
-      const isAddAction =
-        textContent === 'add' ||
-        textContent === '+ add' ||
-        textContent.includes('add to cart') ||
-        ariaLabel.includes('add') ||
-        ariaLabel.includes('increase');
-
-      const isRemoveAction =
-        ariaLabel.includes('decrease') ||
-        ariaLabel.includes('remove') ||
-        ariaLabel.includes('delete');
-
-      if (isAddAction) {
-        this.triggerHaptic('pop');
-        this.playAddToCartSound();
-      } else if (isRemoveAction) {
-        this.triggerHaptic('light');
-        this.playRemoveSound();
-      } else {
-        this.triggerHaptic('light');
-        this.playTapSound();
       }
     };
 

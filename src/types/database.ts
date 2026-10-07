@@ -178,7 +178,11 @@ export interface Settings {
   hotel_longitude?: number;
   hotel_name?: string;
   hotel_address?: string;
-  hotel_phone?: string;
+  hotel_phone?: string | null;
+  hotel_whatsapp?: string | null;
+  hotel_email?: string | null;
+  hotel_city?: string | null;
+  hotel_pincode?: string | null;
   tax_percent?: number;
   max_delivery_distance_km?: number;
   created_at?: string;

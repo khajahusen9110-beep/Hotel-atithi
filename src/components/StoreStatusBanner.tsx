@@ -5,7 +5,14 @@ import { AlertTriangle } from 'lucide-react';
 export const StoreStatusBanner: React.FC = () => {
   const { settings, isOpen, todayHoursText, loading } = useSettings();
 
-  if (loading || !settings) return null;
+  // Reserve the banner's height while loading so the page doesn't jump when it appears
+  if (loading || !settings) {
+    return (
+      <div className="w-full bg-white border-b border-stone-100 py-1.5 px-4" aria-hidden="true">
+        <div className="h-4" />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-white border-b border-stone-100 py-1.5 px-4 text-center">
