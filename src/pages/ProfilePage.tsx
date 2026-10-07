@@ -49,7 +49,7 @@ export const ProfilePage: React.FC = () => {
 
     if (profile) {
       setName(profile.name || '');
-      setEmail(profile.email || '');
+      setEmail(user.email || '');
     }
   }, [user, profile, navigate]);
 
@@ -83,7 +83,8 @@ export const ProfilePage: React.FC = () => {
     e.preventDefault();
     setIsSavingProfile(true);
     try {
-      const { error } = await updateProfile({ name, email });
+      if (!name.trim()) throw new Error('Please enter your name');
+      const { error } = await updateProfile({ name });
       if (error) throw error;
       success('Profile updated successfully');
     } catch (err: any) {
@@ -231,9 +232,9 @@ export const ProfilePage: React.FC = () => {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+                  disabled
+                  placeholder="Not set"
+                  className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-stone-100 text-stone-500 font-medium cursor-not-allowed"
                 />
               </div>
 

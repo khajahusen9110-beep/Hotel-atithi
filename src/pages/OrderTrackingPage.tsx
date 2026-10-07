@@ -26,13 +26,13 @@ import {
 
 const STATUS_STEPS: { status: OrderStatus; label: string; icon: any; desc: string }[] = [
   {
-    status: 'placed',
+    status: 'new',
     label: 'Order Placed',
     icon: Clock,
     desc: 'We received your order and kitchen is acknowledging',
   },
   {
-    status: 'confirmed',
+    status: 'accepted',
     label: 'Confirmed',
     icon: CheckCircle2,
     desc: 'Order accepted by Hotel Atithi chef team',
@@ -67,6 +67,7 @@ export const OrderTrackingPage: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const { success, error: toastError } = useToast();
 
   const fetchOrder = async (isManual = false) => {
@@ -159,6 +160,7 @@ export const OrderTrackingPage: React.FC = () => {
     order.payment_gateway === 'razorpay' &&
     order.payment_status !== 'paid' &&
     order.status !== 'cancelled' &&
+    order.status !== 'rejected' &&
     order.status !== 'delivered';
 
   const handleRetryPayment = async () => {
@@ -182,7 +184,24 @@ export const OrderTrackingPage: React.FC = () => {
   };
 
   const currentStepIndex = STATUS_STEPS.findIndex((s) => s.status === order.status);
-  const isCancelled = order.status === 'cancelled';
+  const isCancelled = order.status === 'cancelled' || order.status === 'rejected';
+  const canCancel = order.status === 'new' && order.payment_status !== 'paid';
+
+  const handleCancelOrder = async () => {
+    if (!window.confirm('Cancel this order?')) return;
+    setIsCancelling(true);
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'cancelled', cancellation_reason: 'Cancelled by customer' })
+      .eq('id', order.id);
+    setIsCancelling(false);
+    if (error) {
+      toastError(error.message || 'Could not cancel the order');
+    } else {
+      success('Order cancelled');
+      fetchOrder();
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-24 text-xs">
@@ -197,7 +216,7 @@ export const OrderTrackingPage: React.FC = () => {
               className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
                 order.status === 'delivered'
                   ? 'bg-emerald-100 text-emerald-800'
-                  : order.status === 'cancelled'
+                  : order.status === 'cancelled' || order.status === 'rejected'
                   ? 'bg-rose-100 text-rose-800'
                   : 'bg-amber-100 text-amber-800'
               }`}
@@ -272,10 +291,19 @@ export const OrderTrackingPage: React.FC = () => {
           <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex items-center gap-3">
             <XCircle className="w-6 h-6 text-rose-600 shrink-0" />
             <div>
-              <p className="font-bold">This order was cancelled.</p>
-              <p className="text-[11px] text-rose-700">
-                If any payment was deducted, it will be refunded within 3-5 business days.
+              <p className="font-bold">
+                {order.status === 'rejected' ? 'Sorry, the restaurant could not accept this order.' : 'This order was cancelled.'}
               </p>
+              {(order.rejection_reason || order.cancellation_reason) && (
+                <p className="text-[11px] text-rose-700">
+                  Reason: {order.status === 'rejected' ? order.rejection_reason : order.cancellation_reason}
+                </p>
+              )}
+              {order.payment_status === 'paid' && (
+                <p className="text-[11px] text-rose-700">
+                  Your online payment will be refunded within 5-7 business days.
+                </p>
+              )}
             </div>
           </div>
         ) : (
@@ -312,6 +340,19 @@ export const OrderTrackingPage: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {canCancel && (
+          <div className="pt-4 border-t border-stone-100 flex items-center justify-between gap-3">
+            <p className="text-[11px] text-stone-500">You can cancel until the restaurant accepts your order.</p>
+            <button
+              onClick={handleCancelOrder}
+              disabled={isCancelling}
+              className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs disabled:opacity-60 shrink-0"
+            >
+              {isCancelling ? 'Cancelling…' : 'Cancel Order'}
+            </button>
           </div>
         )}
 

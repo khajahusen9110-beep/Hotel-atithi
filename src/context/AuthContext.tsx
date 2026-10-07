@@ -190,7 +190,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Only allow customer-editable fields; never send role/id from the client.
     const safeUpdates: Partial<Profile> = {};
     if (updates.name !== undefined) safeUpdates.name = updates.name.trim();
-    if (updates.email !== undefined) safeUpdates.email = updates.email.trim();
     if (updates.phone !== undefined) safeUpdates.phone = updates.phone.trim();
     const { data, error } = await supabase
       .from('profiles')

@@ -34,7 +34,10 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
         comment: comment.trim() || null,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') throw new Error('You have already reviewed this order.');
+        throw error;
+      }
 
       success('Thank you for your review!');
       onReviewSubmitted();

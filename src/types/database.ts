@@ -69,14 +69,15 @@ export interface CartItem {
 }
 
 export type OrderStatus =
-  | 'placed'
-  | 'confirmed'
+  | 'new'
+  | 'accepted'
   | 'preparing'
   | 'out_for_delivery'
   | 'delivered'
+  | 'rejected'
   | 'cancelled';
 
-export type PaymentStatus = 'pending' | 'paid' | 'failed';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type PaymentGateway = 'razorpay' | 'cod';
 
 export interface OrderItem {
@@ -109,8 +110,11 @@ export interface Order {
   status: OrderStatus;
   payment_status: PaymentStatus;
   payment_gateway: PaymentGateway;
-  razorpay_order_id?: string;
-  razorpay_payment_id?: string;
+  razorpay_order_id?: string | null;
+  payment_id?: string | null;
+  coupon_code?: string | null;
+  rejection_reason?: string | null;
+  cancellation_reason?: string | null;
   subtotal: number;
   discount_amount?: number;
   delivery_fee: number;
@@ -133,11 +137,9 @@ export interface Order {
 export interface Profile {
   id: string;
   name?: string;
-  email?: string;
   phone?: string;
   role?: 'customer' | 'admin';
   created_at?: string;
-  updated_at?: string;
 }
 
 export interface StoreHours {

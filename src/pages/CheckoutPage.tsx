@@ -368,9 +368,12 @@ export const CheckoutPage: React.FC = () => {
         .insert(itemsPayload);
 
       if (itemsError) {
-        // rollback: delete the orphan order since items failed
-        console.error('Failed to insert order items, rolling back order:', itemsError);
-        await supabase.from('orders').delete().eq('id', newOrder.id);
+        // Customers can't delete orders, so cancel the empty shell instead
+        console.error('Failed to insert order items, cancelling order:', itemsError);
+        await supabase
+          .from('orders')
+          .update({ status: 'cancelled', cancellation_reason: 'Items could not be added' })
+          .eq('id', newOrder.id);
         const cleanMessage = formatAvailabilityErrorMessage(itemsError.message);
         toastError(cleanMessage);
         setIsProcessing(false);
@@ -419,7 +422,7 @@ export const CheckoutPage: React.FC = () => {
         prefill: {
           name: selectedAddress?.recipient_name || profile?.name,
           contact: selectedAddress?.phone || profile?.phone || user.phone,
-          email: profile?.email || user.email,
+          email: user.email,
         },
       });
 
@@ -790,7 +793,7 @@ export const CheckoutPage: React.FC = () => {
                 <span className="font-bold text-stone-900">₹{displayedTax}</span>
               </div>
               <div className="flex justify-between">
-                <span>Delivery Charge</span>
+                <span>Delivery Charge <span className="text-[10px] text-stone-400">(est.)</span></span>
                 <span>
                   {deliveryFee === 0 ? (
                     <span className="text-emerald-600 font-bold">FREE</span>
