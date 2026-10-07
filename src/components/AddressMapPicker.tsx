@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+// Bundled with the map chunk, so pages without a map never download it
+import 'leaflet/dist/leaflet.css';
 import { MapPin, Navigation, Loader2, CheckCircle2 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 

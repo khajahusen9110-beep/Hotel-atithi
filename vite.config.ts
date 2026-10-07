@@ -11,10 +11,17 @@ export default defineConfig({
     chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
-          supabase: ['@supabase/supabase-js'],
-          leaflet: ['leaflet'],
+        // Long-lived vendor chunks: they keep their hash (and browser cache) across
+        // deploys that only change app code. Matching on the path also catches
+        // sub-entries such as react-dom/client and scheduler.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler|cookie|set-cookie-parser)[\\/]/.test(id)) {
+            return 'react';
+          }
+          if (id.includes('@supabase')) return 'supabase';
+          if (id.includes('leaflet')) return 'leaflet';
+          return undefined;
         },
       },
     },

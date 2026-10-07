@@ -1,6 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { AddressFormData } from '../types/database';
-import { AddressMapPicker, AutoDetectedAddress } from './AddressMapPicker';
+import type { AutoDetectedAddress } from './AddressMapPicker';
+
+// The map library (Leaflet) is heavy; download it only when an address form is opened
+const AddressMapPicker = lazy(() =>
+  import('./AddressMapPicker').then((m) => ({ default: m.AddressMapPicker }))
+);
 import { User, Phone, MapPin, Building, Home, Briefcase, Tag, Check, Sparkles } from 'lucide-react';
 import { soundAndHaptics } from '../utils/soundAndHaptics';
 
@@ -230,12 +235,16 @@ export const AddressForm: React.FC<AddressFormProps> = ({
             </span>
           )}
         </div>
-        <AddressMapPicker
-          initialLat={formData.latitude}
-          initialLng={formData.longitude}
-          isEdit={isEdit}
-          onLocationSelect={handleLocationSelect}
-        />
+        <Suspense
+          fallback={<div className="h-64 rounded-2xl bg-stone-100 animate-pulse" aria-label="Loading map" />}
+        >
+          <AddressMapPicker
+            initialLat={formData.latitude}
+            initialLng={formData.longitude}
+            isEdit={isEdit}
+            onLocationSelect={handleLocationSelect}
+          />
+        </Suspense>
       </div>
 
       {/* Street Details */}

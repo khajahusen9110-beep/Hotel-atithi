@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getProductAvailability } from '../utils/productAvailability';
+import { FALLBACK_FOOD_IMAGE, imageSrcSet, sizedImageUrl } from '../utils/image';
 
 export const CartPage: React.FC = () => {
   const { items, updateQuantity, removeFromCart, clearCart, subtotal } = useCart();
@@ -122,8 +123,20 @@ export const CartPage: React.FC = () => {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <img
-                      src={product.image_url}
+                      src={sizedImageUrl(product.image_url || FALLBACK_FOOD_IMAGE, 56)}
+                      srcSet={imageSrcSet(product.image_url || FALLBACK_FOOD_IMAGE, 56)}
                       alt={product.name}
+                      width={56}
+                      height={56}
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        if (img.src !== FALLBACK_FOOD_IMAGE) {
+                          img.srcset = '';
+                          img.src = FALLBACK_FOOD_IMAGE;
+                        }
+                      }}
                       className={`w-14 h-14 rounded-2xl object-cover bg-stone-100 shrink-0 ${
                         !avail.isAvailable ? 'opacity-70 grayscale-30' : ''
                       }`}
