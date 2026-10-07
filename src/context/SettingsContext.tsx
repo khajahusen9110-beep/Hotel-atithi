@@ -43,36 +43,33 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const fetchSettings = async () => {
     try {
-      // 1. Fetch settings row
-      const { data, error } = await supabase
-        .from('settings')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+      // The three queries are independent: run them in parallel instead of one after another
+      const [settingsRes, openRes, hoursRes] = await Promise.allSettled([
+        supabase.from('settings').select('*').limit(1).maybeSingle(),
+        supabase.rpc('is_store_open_now'),
+        supabase.from('store_hours').select('*'),
+      ]);
 
-      if (!error && data) {
+      // 1. Settings row
+      const data =
+        settingsRes.status === 'fulfilled' && !settingsRes.value.error ? settingsRes.value.data : null;
+      if (data) {
         setSettings(data);
       }
 
-      // 2. Query is_store_open_now() RPC
-      try {
-        const { data: openRpc, error: rpcError } = await supabase.rpc('is_store_open_now');
-        if (!rpcError && typeof openRpc === 'boolean') {
-          setIsOpen(openRpc);
-        } else if (data) {
-          setIsOpen(data.is_store_open ?? true);
-        }
-      } catch (rpcErr) {
-        console.warn('is_store_open_now RPC error:', rpcErr);
+      // 2. is_store_open_now() RPC
+      if (openRes.status === 'fulfilled' && !openRes.value.error && typeof openRes.value.data === 'boolean') {
+        setIsOpen(openRes.value.data);
+      } else {
+        if (openRes.status === 'rejected') console.warn('is_store_open_now RPC error:', openRes.reason);
         if (data) setIsOpen(data.is_store_open ?? true);
       }
 
-      // 3. Query store_hours table for today's hours
-      try {
-        const { data: hoursData, error: hoursError } = await supabase
-          .from('store_hours')
-          .select('*');
-
+      // 3. store_hours table for today's hours
+      if (hoursRes.status === 'rejected') {
+        console.warn('store_hours table query error:', hoursRes.reason);
+      } else {
+        const { data: hoursData, error: hoursError } = hoursRes.value;
         if (!hoursError && hoursData && hoursData.length > 0) {
           const currentDay = getCurrentDayOfWeekIST();
           const today = hoursData.find((h: StoreHours) => h.day_of_week === currentDay);
@@ -92,8 +89,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const closeFmt = formatTime12Hour(data.closing_time || '22:00:00');
           setTodayHoursText(`Hours: ${openFmt} - ${closeFmt}`);
         }
-      } catch (hoursErr) {
-        console.warn('store_hours table query error:', hoursErr);
       }
     } catch (e) {
       console.warn('Error loading settings from DB, using fallback defaults:', e);

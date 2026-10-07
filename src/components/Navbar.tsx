@@ -30,7 +30,7 @@ export const Navbar: React.FC = () => {
                 VEG & NON-VEG
               </span>
             </div>
-            <p className="text-xs text-stone-500 font-medium truncate">
+            <p className="hidden sm:block text-xs text-stone-500 font-medium truncate">
               Fresh food, delivered hot
             </p>
           </div>
