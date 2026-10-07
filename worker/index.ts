@@ -22,7 +22,7 @@ interface ExecutionContext {
 interface CategoryRow {
   id: string;
   name: string;
-  updated_at: string | null;
+  created_at: string | null;
 }
 
 interface ProductRow {
@@ -48,7 +48,7 @@ async function buildSitemap(env: Env): Promise<string> {
   };
 
   const [categories, products] = await Promise.all([
-    get<CategoryRow[]>('categories?select=id,name,updated_at&type=eq.food&is_active=eq.true&order=sort_order.asc'),
+    get<CategoryRow[]>('categories?select=id,name,created_at&type=eq.food&is_active=eq.true&order=sort_order.asc'),
     get<ProductRow[]>('products?select=category_id,updated_at&type=eq.food'),
   ]);
 
@@ -71,7 +71,7 @@ async function buildSitemap(env: Env): Promise<string> {
     const path = `/menu/${slugify(c.name)}`;
     if (seen.has(path)) continue;
     seen.add(path);
-    const lastmod = latest(day(c.updated_at), d.updated);
+    const lastmod = latest(day(c.created_at), d.updated);
     menuUpdated = latest(menuUpdated, lastmod);
     urls.push({ loc: `${SITE_URL}${path}`, lastmod, changefreq: 'weekly', priority: '0.8' });
   }
