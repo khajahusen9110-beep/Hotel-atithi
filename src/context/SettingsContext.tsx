@@ -19,9 +19,9 @@ const defaultSettings: Settings = {
   closing_time: '23:00',
   announcement: 'Welcome to Hotel Atithi! Delicious pure veg & non-veg dining delivered fast.',
   min_order_amount: 149,
-  delivery_fee_base: 30,
-  delivery_fee: 30,
-  delivery_fee_per_km: 10,
+  delivery_fee_base: 0,
+  delivery_fee: 0,
+  delivery_fee_per_km: 0,
   free_delivery_threshold: 500,
   free_delivery_above: 500,
   hotel_latitude: 15.806135,
@@ -29,7 +29,7 @@ const defaultSettings: Settings = {
   hotel_name: 'Hotel Atithi',
   hotel_address: 'NH150A, Bassapura, Sindhanur, Raichur, Karnataka 584128',
   hotel_phone: '',
-  tax_percent: 5,
+  tax_percent: 0,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

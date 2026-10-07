@@ -85,26 +85,8 @@ export const CheckoutPage: React.FC = () => {
     );
   }, [cookingInstructions, deliveryInstructions]);
 
-  const freeThreshold = settings?.free_delivery_above || settings?.free_delivery_threshold || 500;
-  const deliveryBase = settings?.delivery_fee || settings?.delivery_fee_base || 30;
-  const deliveryFee = subtotal >= freeThreshold ? 0 : deliveryBase;
-
-  // Dynamically fetch tax_percent from settings table (fallback to 5% if not yet loaded)
-  const taxPercent = settings?.tax_percent !== undefined ? Number(settings.tax_percent) : 5;
-  // Client-side display estimate only (authoritative value calculated by database trigger)
-  const estimatedTax = Math.round((subtotal * taxPercent) / 100);
-  const estimatedGrandTotal = subtotal + deliveryFee + estimatedTax;
-
-  // Authoritative values fetched back from DB after trigger calculates them
-  const [authoritativeOrder, setAuthoritativeOrder] = useState<{
-    tax_amount?: number;
-    tax?: number;
-    total?: number;
-    total_amount?: number;
-  } | null>(null);
-
-  const displayedTax = authoritativeOrder?.tax_amount ?? authoritativeOrder?.tax ?? estimatedTax;
-  const displayedTotal = authoritativeOrder?.total ?? authoritativeOrder?.total_amount ?? estimatedGrandTotal;
+  // No GST and no delivery fee: the database computes total = items subtotal - coupon discount
+  const displayedTotal = subtotal;
 
   // Make sure prices/availability shown here are the live ones from the menu
   useEffect(() => {
@@ -725,20 +707,6 @@ export const CheckoutPage: React.FC = () => {
               <div className="flex justify-between">
                 <span>Items Subtotal</span>
                 <span className="font-bold text-stone-900">₹{subtotal}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>GST ({taxPercent}%)</span>
-                <span className="font-bold text-stone-900">₹{displayedTax}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Delivery Charge <span className="text-[10px] text-stone-400">(est.)</span></span>
-                <span>
-                  {deliveryFee === 0 ? (
-                    <span className="text-emerald-600 font-bold">FREE</span>
-                  ) : (
-                    <span className="font-bold text-stone-900">₹{deliveryFee}</span>
-                  )}
-                </span>
               </div>
               <div className="pt-2 border-t border-stone-100 flex justify-between font-display font-bold text-base text-stone-900">
                 <span>Total Amount</span>

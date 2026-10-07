@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Order } from '../types/database';
 import { useAuth } from '../context/AuthContext';
-import { useSettings } from '../context/SettingsContext';
 import {
   Clock,
   ArrowRight,
@@ -22,7 +21,6 @@ const ORDERS_PAGE_SIZE = 10;
 
 export const OrderHistoryPage: React.FC = () => {
   const { user } = useAuth();
-  const { settings } = useSettings();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -300,24 +298,19 @@ export const OrderHistoryPage: React.FC = () => {
                     <span>-₹{order.discount_amount}</span>
                   </div>
                 ) : null}
-                <div className="flex justify-between">
-                  <span>
-                    GST ({order.tax_percent ?? (settings?.tax_percent !== undefined ? Number(settings.tax_percent) : 5)}%)
-                  </span>
-                  <span className="font-bold text-stone-900">
-                    ₹{order.tax_amount ?? order.tax ?? 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Delivery Charge</span>
-                  <span>
-                    {order.delivery_fee === 0 ? (
-                      <span className="text-emerald-600 font-bold">FREE</span>
-                    ) : (
-                      <span className="font-bold text-stone-900">₹{order.delivery_fee}</span>
-                    )}
-                  </span>
-                </div>
+                {/* GST / delivery fee are no longer charged; shown only on older orders that had them */}
+                {Number(order.tax_amount ?? order.tax ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>GST</span>
+                    <span className="font-bold text-stone-900">₹{order.tax_amount ?? order.tax}</span>
+                  </div>
+                )}
+                {Number(order.delivery_fee ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>Delivery Charge</span>
+                    <span className="font-bold text-stone-900">₹{order.delivery_fee}</span>
+                  </div>
+                )}
                 <div className="pt-1.5 border-t border-stone-200 flex justify-between font-bold text-stone-900 text-xs">
                   <span>Total Amount</span>
                   <span>₹{order.total ?? order.total_amount}</span>

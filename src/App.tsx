@@ -13,6 +13,7 @@ import { Footer } from './components/Footer';
 import { StickyCartBar } from './components/StickyCartBar';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ScrollToTop } from './components/ScrollToTop';
 import { PageLoader } from './components/PageLoader';
 
 // The menu is the landing page, so it ships in the main bundle; every other page
@@ -58,6 +59,7 @@ export const App: React.FC = () => {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <ToastProvider>
         <AuthProvider>
           <SettingsProvider>
