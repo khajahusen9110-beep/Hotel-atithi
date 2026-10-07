@@ -56,7 +56,7 @@ export const CartPage: React.FC = () => {
         </div>
         <h2 className="font-display font-bold text-2xl text-stone-900">Your Cart is Empty</h2>
         <p className="text-xs sm:text-sm text-stone-500 leading-relaxed">
-          Looks like you haven't added any pure veg delicacies or fresh farm vegetables yet.
+          Looks like you haven't added anything yet. Hot biryani, tandoori and more are waiting!
         </p>
         <Link
           to="/"

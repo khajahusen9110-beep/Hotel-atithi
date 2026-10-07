@@ -8,3 +8,10 @@
 # Hashed build files never change: cache for a year
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# PWA: the service worker and manifest must always be revalidated so updates reach customers
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+  Content-Type: application/manifest+json
