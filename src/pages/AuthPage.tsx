@@ -22,7 +22,12 @@ import {
 
 export const AuthPage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const redirectPath = searchParams.get('redirect') || '/';
+  // Only allow same-site relative redirects (blocks ?redirect=//evil.com open-redirects)
+  const rawRedirect = searchParams.get('redirect') || '/';
+  const redirectPath =
+    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') && !rawRedirect.startsWith('/\\')
+      ? rawRedirect
+      : '/';
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
 
   const { user, signUp, signInWithPassword, signInWithOtp, verifyOtp } = useAuth();
@@ -66,7 +71,8 @@ export const AuthPage: React.FC = () => {
 
   // If already authenticated, redirect
   useEffect(() => {
-    if (user) {
+    // Guests (anonymous sessions) may still open this page to log in or create an account
+    if (user && !user.is_anonymous) {
       navigate(redirectPath);
     }
   }, [user, navigate, redirectPath]);

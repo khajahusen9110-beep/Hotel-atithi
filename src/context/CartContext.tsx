@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { CartItem, Product } from '../types/database';
+import { supabase } from '../lib/supabase';
 import { useToast } from './ToastContext';
 import { getProductAvailability } from '../utils/productAvailability';
 import { soundAndHaptics } from '../utils/soundAndHaptics';
@@ -10,6 +11,7 @@ interface CartContextType {
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
+  refreshCartProducts: () => Promise<void>;
   itemCount: number;
   subtotal: number;
 }
@@ -17,17 +19,29 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const CART_STORAGE_KEY = 'hotel_atithi_cart_v1';
+const MAX_QTY = 50;
+
+const loadSavedCart = (): CartItem[] => {
+  try {
+    const saved = localStorage.getItem(CART_STORAGE_KEY);
+    const parsed = saved ? JSON.parse(saved) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (i: any) =>
+        i && i.product && typeof i.product.id === 'string' &&
+        typeof i.product.price === 'number' &&
+        Number.isInteger(i.quantity) && i.quantity > 0
+    );
+  } catch {
+    return [];
+  }
+};
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { success, error: toastError } = useToast();
-  const [items, setItems] = useState<CartItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(CART_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [items, setItems] = useState<CartItem[]>(loadSavedCart);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   useEffect(() => {
     try {
@@ -36,6 +50,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Failed to save cart to localStorage', e);
     }
   }, [items]);
+
+  // Re-sync saved cart with live product data (price, availability) so a stale
+  // localStorage cart never shows an old price or a deleted dish.
+  const refreshCartProducts = useCallback(async () => {
+    const ids = itemsRef.current.map((i) => i.product.id).filter(Boolean);
+    if (ids.length === 0) return;
+    const { data, error } = await supabase.from('products').select('*').in('id', ids);
+    if (error || !data) return;
+    const live = new Map<string, Product>(data.map((p: Product) => [p.id, p]));
+    if (itemsRef.current.some((item) => !live.has(item.product.id))) {
+      toastError('Some items in your cart are no longer on the menu and were removed.');
+    }
+    setItems((prev) =>
+      prev
+        .filter((item) => live.has(item.product.id))
+        .map((item) => ({ ...item, product: { ...item.product, ...live.get(item.product.id)! } }))
+    );
+  }, [toastError]);
+
+  useEffect(() => {
+    refreshCartProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addToCart = (product: Product, quantity: number = 1) => {
     const avail = getProductAvailability(product);
@@ -54,14 +91,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     soundAndHaptics.playAddToCartSound();
 
     setItems((prev) => {
-      const existingIndex = prev.findIndex((item) => item.product.id === product.id);
-      if (existingIndex > -1) {
-        const updated = [...prev];
-        updated[existingIndex].quantity += quantity;
-        return updated;
-      } else {
-        return [...prev, { id: product.id, product, quantity }];
+      const exists = prev.some((item) => item.product.id === product.id);
+      if (exists) {
+        // Immutable update: mutating the existing object doubled quantities under React StrictMode
+        return prev.map((item) =>
+          item.product.id === product.id
+            ? { ...item, product, quantity: Math.min(item.quantity + quantity, MAX_QTY) }
+            : item
+        );
       }
+      return [...prev, { id: product.id, product, quantity: Math.min(quantity, MAX_QTY) }];
     });
     success(`Added ${product.name} to cart`);
   };
@@ -83,7 +122,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setItems((prev) =>
       prev.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
+        item.product.id === productId ? { ...item, quantity: Math.min(quantity, MAX_QTY) } : item
       )
     );
   };
@@ -109,6 +148,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         removeFromCart,
         updateQuantity,
         clearCart,
+        refreshCartProducts,
         itemCount,
         subtotal,
       }}

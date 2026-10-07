@@ -25,10 +25,10 @@ export const AddressForm: React.FC<AddressFormProps> = ({
     label: initialData?.label || 'Home',
     full_address: initialData?.full_address || '',
     landmark: initialData?.landmark || '',
-    city: initialData?.city || 'Raichur',
+    city: initialData?.city || 'Sindhanur',
     pincode: initialData?.pincode || '',
-    latitude: initialData?.latitude || 15.3647,
-    longitude: initialData?.longitude || 75.1240,
+    latitude: initialData?.latitude || 15.806135,
+    longitude: initialData?.longitude || 76.765092,
     is_default: initialData?.is_default ?? true,
   });
 

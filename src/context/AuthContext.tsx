@@ -8,6 +8,10 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  /** true when the visitor is ordering without an account (anonymous Supabase session) */
+  isGuest: boolean;
+  /** Makes sure there is a session; creates a guest session if the visitor isn't logged in */
+  ensureSession: () => Promise<User>;
   signUp: (params: {
     email: string;
     password: string;
@@ -69,14 +73,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchProfile(session.user.id);
       }
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
 
+    // Do NOT await Supabase calls inside this callback: supabase-js holds an auth
+    // lock while it runs, so awaiting another query here can deadlock the client.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          const uid = session.user.id;
+          setTimeout(() => {
+            fetchProfile(uid);
+          }, 0);
         } else {
           setProfile(null);
         }
@@ -167,6 +176,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error };
   };
 
+  const ensureSession = async (): Promise<User> => {
+    const { data: current } = await supabase.auth.getSession();
+    if (current.session?.user) return current.session.user;
+
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error || !data.user) {
+      console.error('Guest session failed:', error);
+      throw new Error(
+        'Guest checkout is not available right now. Please sign in to place your order.'
+      );
+    }
+    setSession(data.session);
+    setUser(data.user);
+    // profile row is created by the database trigger; give it a moment then load it
+    setTimeout(() => fetchProfile(data.user!.id), 500);
+    return data.user;
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -182,9 +209,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) return { error: new Error('Not logged in') };
+    // Only allow customer-editable fields; never send role/id from the client.
+    const safeUpdates: Partial<Profile> = {};
+    if (updates.name !== undefined) safeUpdates.name = updates.name.trim();
+    if (updates.phone !== undefined) safeUpdates.phone = updates.phone.trim();
     const { data, error } = await supabase
       .from('profiles')
-      .update(updates)
+      .update(safeUpdates)
       .eq('id', user.id)
       .select()
       .single();
@@ -202,6 +233,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         profile,
         loading,
+        isGuest: Boolean(user?.is_anonymous),
+        ensureSession,
         signUp,
         signInWithPassword,
         signInWithOtp,

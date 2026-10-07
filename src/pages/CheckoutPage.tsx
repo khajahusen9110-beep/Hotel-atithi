@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../lib/supabase';
-import { Address, AddressFormData, PaymentGateway } from '../types/database';
+import { Address, AddressFormData } from '../types/database';
 import { AddressForm } from '../components/AddressForm';
 import {
   MapPin,
@@ -35,11 +35,13 @@ import {
 } from '../utils/productAvailability';
 
 export const CheckoutPage: React.FC = () => {
-  const { items, subtotal, clearCart } = useCart();
-  const { user, profile } = useAuth();
-  const { settings } = useSettings();
+  const { items, subtotal, clearCart, refreshCartProducts } = useCart();
+  const { user, profile, loading: authLoading, ensureSession, refreshProfile } = useAuth();
+  const { settings, isOpen } = useSettings();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
+  const submittingRef = useRef(false);
+  const minOrder = settings?.min_order_amount || 149;
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -47,7 +49,8 @@ export const CheckoutPage: React.FC = () => {
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
-  const [paymentGateway, setPaymentGateway] = useState<PaymentGateway>('cod');
+  // Hotel Atithi accepts Cash on Delivery only
+  const paymentGateway = 'cod' as const;
   const [isProcessing, setIsProcessing] = useState(false);
   const [isOrderPlaced, setIsOrderPlaced] = useState(false);
 
@@ -103,38 +106,52 @@ export const CheckoutPage: React.FC = () => {
   const displayedTax = authoritativeOrder?.tax_amount ?? authoritativeOrder?.tax ?? estimatedTax;
   const displayedTotal = authoritativeOrder?.total ?? authoritativeOrder?.total_amount ?? estimatedGrandTotal;
 
+  // Make sure prices/availability shown here are the live ones from the menu
+  useEffect(() => {
+    refreshCartProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Fetch saved customer addresses
-  const fetchAddresses = async () => {
-    if (!user) return;
+  const fetchAddresses = async (userId: string | undefined = user?.id) => {
+    if (!userId) {
+      setAddresses([]);
+      setIsAddingAddress(true);
+      setLoadingAddresses(false);
+      return [] as Address[];
+    }
     setLoadingAddresses(true);
     try {
       const { data, error } = await supabase
         .from('addresses')
         .select('*')
-        .eq('customer_id', user.id)
+        .eq('customer_id', userId)
         .order('is_default', { ascending: false });
 
       if (!error && data && data.length > 0) {
         setAddresses(data);
-        const defaultAddr = data.find((a) => a.is_default) || data[0];
-        setSelectedAddressId(defaultAddr.id);
-      } else {
-        setAddresses([]);
-        setIsAddingAddress(true);
+        setSelectedAddressId((prev) =>
+          data.some((a) => a.id === prev) ? prev : (data.find((a) => a.is_default) || data[0]).id
+        );
+        return data as Address[];
       }
+      setAddresses([]);
+      setIsAddingAddress(true);
+      return [] as Address[];
     } catch (e) {
       console.warn('Error fetching addresses:', e);
       setIsAddingAddress(true);
+      return [] as Address[];
     } finally {
       setLoadingAddresses(false);
     }
   };
 
   useEffect(() => {
-    if (user) {
-      fetchAddresses();
-    }
-  }, [user]);
+    if (authLoading) return;
+    fetchAddresses(user?.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, authLoading]);
 
   // Safely redirect to cart in useEffect rather than during rendering
   useEffect(() => {
@@ -142,28 +159,6 @@ export const CheckoutPage: React.FC = () => {
       navigate('/cart', { replace: true });
     }
   }, [items.length, isProcessing, isOrderPlaced, navigate]);
-
-  if (!user) {
-    return (
-      <div className="max-w-md mx-auto py-16 px-4 text-center space-y-4">
-        <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-          <User className="w-7 h-7" />
-        </div>
-        <h2 className="font-display font-bold text-xl text-stone-900">
-          Sign In to Place Order
-        </h2>
-        <p className="text-xs text-stone-500">
-          Quickly login with your mobile phone number to save your delivery addresses and track orders in real time.
-        </p>
-        <Link
-          to="/auth?redirect=/checkout"
-          className="inline-block px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs"
-        >
-          Sign In with Phone
-        </Link>
-      </div>
-    );
-  }
 
   if (items.length === 0 && !isOrderPlaced) {
     return (
@@ -175,14 +170,15 @@ export const CheckoutPage: React.FC = () => {
   }
 
   const handleSaveNewAddress = async (formData: AddressFormData) => {
-    if (!user) return;
-
     try {
+      // Visitors can order without an account: a guest session is created on first address save
+      const currentUser = user ?? (await ensureSession());
+
       if (formData.is_default) {
         await supabase
           .from('addresses')
           .update({ is_default: false })
-          .eq('customer_id', user.id);
+          .eq('customer_id', currentUser.id);
       }
 
       if (editingAddress) {
@@ -207,13 +203,13 @@ export const CheckoutPage: React.FC = () => {
         success('Delivery address updated');
         const editedId = editingAddress.id;
         setEditingAddress(null);
-        await fetchAddresses();
+        await fetchAddresses(currentUser.id);
         setSelectedAddressId(editedId);
       } else {
         const { data, error } = await supabase
           .from('addresses')
           .insert({
-            customer_id: user.id,
+            customer_id: currentUser.id,
             recipient_name: formData.recipient_name,
             phone: formData.phone,
             label: formData.label,
@@ -232,31 +228,42 @@ export const CheckoutPage: React.FC = () => {
 
         success('Delivery address saved');
         setIsAddingAddress(false);
-        await fetchAddresses();
+        await fetchAddresses(currentUser.id);
         if (data) {
           setSelectedAddressId(data.id);
         }
       }
     } catch (err: any) {
       toastError(err.message || 'Failed to save address');
+      throw err;
     }
   };
 
   const handlePlaceOrder = async () => {
     // 1. Pre-flight Payload Validation
     if (!user) {
-      toastError('Please sign in to place your order');
-      navigate('/auth?redirect=/checkout');
+      toastError('Please add your delivery address first');
+      setIsAddingAddress(true);
       return;
     }
 
-    if (!selectedAddressId && !isAddingAddress) {
+    if (!selectedAddressId || !addresses.some((a) => a.id === selectedAddressId)) {
       toastError('Please choose or add a delivery address');
       return;
     }
 
     if (!items || items.length === 0) {
       toastError('Your cart is empty. Please add items before checking out.');
+      return;
+    }
+
+    if (!isOpen) {
+      toastError('Hotel Atithi is closed right now. Please order during opening hours.');
+      return;
+    }
+
+    if (subtotal < minOrder) {
+      toastError(`Minimum order amount is ₹${minOrder}. Please add ₹${minOrder - subtotal} more.`);
       return;
     }
 
@@ -275,6 +282,8 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsProcessing(true);
 
     try {
@@ -316,12 +325,25 @@ export const CheckoutPage: React.FC = () => {
       const deliveryNotes = deliveryInstructions.trim();
       const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
-      // 1. Order shell create karo (REAL Supabase insert, mock nahi):
+      // The kitchen sees the customer's name/phone from their profile; fill it from the address if missing
+      if (selectedAddress && (!profile?.name || !profile?.phone)) {
+        await supabase
+          .from('profiles')
+          .update({
+            name: profile?.name || selectedAddress.recipient_name || 'Customer',
+            phone: profile?.phone || selectedAddress.phone,
+          })
+          .eq('id', user.id);
+        refreshProfile();
+      }
+
+      // 1. Create the order shell (totals are calculated by DB triggers)
       const { data: newOrder, error } = await supabase
         .from('orders')
         .insert({
           customer_id: user.id,
           address_id: selectedAddressId,
+          payment_gateway: paymentGateway,
           cooking_instructions: cookingNotes || null,
           delivery_instructions: deliveryNotes || null,
         })
@@ -334,7 +356,7 @@ export const CheckoutPage: React.FC = () => {
         return;
       }
 
-      // 2. Order items insert karo (REAL Supabase insert):
+      // 2. Insert order items (prices are taken from the products table server-side)
       const itemsPayload = items.map((item) => ({
         order_id: newOrder.id,
         product_id: item.product.id,
@@ -346,16 +368,19 @@ export const CheckoutPage: React.FC = () => {
         .insert(itemsPayload);
 
       if (itemsError) {
-        // rollback: delete the orphan order since items failed
-        console.error('Failed to insert order items, rolling back order:', itemsError);
-        await supabase.from('orders').delete().eq('id', newOrder.id);
+        // Customers can't delete orders, so cancel the empty shell instead
+        console.error('Failed to insert order items, cancelling order:', itemsError);
+        await supabase
+          .from('orders')
+          .update({ status: 'cancelled', cancellation_reason: 'Items could not be added' })
+          .eq('id', newOrder.id);
         const cleanMessage = formatAvailabilityErrorMessage(itemsError.message);
         toastError(cleanMessage);
         setIsProcessing(false);
         return;
       }
 
-      // 3. Agar coupon apply kiya ho:
+      // 3. Apply coupon if one was entered
       const activeCoupon = appliedCoupon || couponCode.trim();
       if (activeCoupon) {
         try {
@@ -372,154 +397,25 @@ export const CheckoutPage: React.FC = () => {
         }
       }
 
-      // 4. Payment method ke hisaab se:
-      if (paymentGateway === 'cod') {
-        // COD: supabase.from('orders').update({ payment_gateway: 'cod' }).eq('id', newOrder.id)
-        await supabase
-          .from('orders')
-          .update({ payment_gateway: 'cod' })
-          .eq('id', newOrder.id);
+      // Order and items are persisted now; the cart has done its job.
+      clearCart();
+      sessionStorage.removeItem('hotel_atithi_order_notes');
+      setIsOrderPlaced(true);
 
-        // 5. Order confirm hone ke baad, order ko WAPAS Supabase se fetch karo:
-        const { data: finalOrder } = await supabase
-          .from('orders')
-          .select('*, order_items(*)')
-          .eq('id', newOrder.id)
-          .single();
-
-        const confirmedOrder = finalOrder || newOrder;
-        setAuthoritativeOrder(confirmedOrder);
-        setIsOrderPlaced(true);
-        clearCart();
-        sessionStorage.removeItem('hotel_atithi_order_notes');
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+      const celebrate = (message: string) => {
+        confetti({ particleCount: 90, spread: 75, origin: { y: 0.6 } });
         soundAndHaptics.playSuccessSound();
         soundAndHaptics.triggerHaptic('success');
-        success('Order placed successfully via Cash on Delivery!');
-        navigate(`/order/${confirmedOrder.id}`);
-        return;
-      }
+        success(message);
+      };
 
-      // Online: supabase.functions.invoke('create-razorpay-order', { body: { order_id: newOrder.id } })
-      let rzData: any = null;
-      try {
-        const { data: edgeData, error: edgeErr } = await supabase.functions.invoke('create-razorpay-order', {
-          body: { order_id: newOrder.id },
-        });
-        if (!edgeErr && edgeData) {
-          rzData = edgeData;
-        }
-      } catch (fnErr) {
-        console.warn('Edge function create-razorpay-order invoke note:', fnErr);
-      }
-
-      // Fetch trigger-calculated order data
-      const { data: prePaymentOrder } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .eq('id', newOrder.id)
-        .single();
-
-      const paymentTotal =
-        prePaymentOrder?.total ??
-        prePaymentOrder?.total_amount ??
-        estimatedGrandTotal;
-
-      if (window.Razorpay) {
-        const razorpayKey = rzData?.keyId || rzData?.key || 'rzp_test_placeholder';
-        const razorpayOrderId = rzData?.razorpayOrderId || rzData?.id;
-
-        const options = {
-          key: razorpayKey,
-          amount: Math.round(paymentTotal * 100),
-          currency: 'INR',
-          name: 'Hotel Atithi',
-          description: `Order #${newOrder.order_number || newOrder.id.slice(0, 8)}`,
-          image: '/app-favicon.ico',
-          order_id: razorpayOrderId,
-          handler: async (response: any) => {
-            // phir Razorpay checkout khulne ke baad supabase.functions.invoke('verify-payment', {...})
-            try {
-              await supabase.functions.invoke('verify-payment', {
-                body: {
-                  order_id: newOrder.id,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                },
-              });
-            } catch (vErr) {
-              console.warn('verify-payment edge function note:', vErr);
-            }
-
-            await supabase
-              .from('orders')
-              .update({
-                payment_gateway: 'razorpay',
-                payment_status: 'paid',
-                razorpay_payment_id: response.razorpay_payment_id,
-              })
-              .eq('id', newOrder.id);
-
-            // 5. Order confirm hone ke baad, order ko WAPAS Supabase se fetch karo:
-            const { data: finalOrder } = await supabase
-              .from('orders')
-              .select('*, order_items(*)')
-              .eq('id', newOrder.id)
-              .single();
-
-            const confirmedOrder = finalOrder || newOrder;
-            setAuthoritativeOrder(confirmedOrder);
-            setIsOrderPlaced(true);
-            clearCart();
-            sessionStorage.removeItem('hotel_atithi_order_notes');
-            confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
-            soundAndHaptics.playSuccessSound();
-            soundAndHaptics.triggerHaptic('success');
-            success('Payment received! Order confirmed.');
-            navigate(`/order/${confirmedOrder.id}`);
-          },
-          prefill: {
-            name: selectedAddress?.recipient_name || profile?.name || 'Customer',
-            contact: selectedAddress?.phone || profile?.phone || user.phone || '9876543210',
-          },
-          theme: { color: '#d97706' },
-        };
-
-        const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', async () => {
-          await supabase
-            .from('orders')
-            .update({ payment_status: 'failed', payment_gateway: 'razorpay' })
-            .eq('id', newOrder.id);
-          toastError('Online payment failed. You can retry in order tracking.');
-          navigate(`/order/${newOrder.id}`);
-        });
-
-        rzp.open();
-      } else {
-        await supabase
-          .from('orders')
-          .update({ payment_gateway: 'razorpay', payment_status: 'paid' })
-          .eq('id', newOrder.id);
-
-        // 5. Order confirm hone ke baad, order ko WAPAS Supabase se fetch karo:
-        const { data: finalOrder } = await supabase
-          .from('orders')
-          .select('*, order_items(*)')
-          .eq('id', newOrder.id)
-          .single();
-
-        const confirmedOrder = finalOrder || newOrder;
-        setAuthoritativeOrder(confirmedOrder);
-        setIsOrderPlaced(true);
-        clearCart();
-        navigate(`/order/${confirmedOrder.id}`);
-      }
+      celebrate('Order placed! Please pay cash on delivery.');
+      navigate(`/order/${newOrder.id}`, { replace: true });
     } catch (err: any) {
       console.error('Checkout error:', err);
       toastError(err?.message || 'Failed to place order. Please try again.');
     } finally {
+      submittingRef.current = false;
       setIsProcessing(false);
     }
   };
@@ -586,15 +482,27 @@ export const CheckoutPage: React.FC = () => {
                     </>
                   )}
                 </h3>
+                {!user && (
+                  <p className="mb-3 text-[11px] text-stone-600 bg-white border border-stone-200 rounded-xl p-2.5">
+                    No account needed — just enter your name, phone number and delivery address.{' '}
+                    <Link to="/auth?redirect=/checkout" className="font-bold text-amber-700 underline">
+                      Already have an account? Sign in
+                    </Link>
+                  </p>
+                )}
                 <AddressForm
                   initialData={editingAddress || undefined}
                   isEdit={!!editingAddress}
                   submitLabel={editingAddress ? 'Update Address' : 'Save Address'}
                   onSubmit={handleSaveNewAddress}
-                  onCancel={() => {
-                    setIsAddingAddress(false);
-                    setEditingAddress(null);
-                  }}
+                  onCancel={
+                    addresses.length > 0
+                      ? () => {
+                          setIsAddingAddress(false);
+                          setEditingAddress(null);
+                        }
+                      : undefined
+                  }
                 />
               </div>
             ) : (
@@ -710,68 +618,19 @@ export const CheckoutPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. Payment Method Selector */}
-          <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xs space-y-4">
-            <h2 className="font-bold text-stone-900 text-sm flex items-center gap-2 pb-3 border-b border-stone-100">
-              <CreditCard className="w-4 h-4 text-amber-600" />
-              Choose Payment Method
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Cash on Delivery */}
-              <div
-                onClick={() => setPaymentGateway('cod')}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                  paymentGateway === 'cod'
-                    ? 'bg-emerald-50/70 border-emerald-500 shadow-xs'
-                    : 'bg-stone-50 border-stone-200 hover:bg-stone-100'
-                }`}
-              >
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                  <Banknote className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-stone-900">Cash on Delivery</span>
-                    {paymentGateway === 'cod' && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    )}
-                  </div>
-                  <p className="text-stone-500 text-[11px] mt-0.5">
-                    Pay in cash or UPI QR directly to the rider upon doorstep delivery.
-                  </p>
-                </div>
-              </div>
-
-              {/* Online Payment (Razorpay) */}
-              <div
-                onClick={() => setPaymentGateway('razorpay')}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                  paymentGateway === 'razorpay'
-                    ? 'bg-amber-50/70 border-amber-500 shadow-xs'
-                    : 'bg-stone-50 border-stone-200 hover:bg-stone-100'
-                }`}
-              >
-                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-stone-900">Online Payment</span>
-                    {paymentGateway === 'razorpay' && (
-                      <CheckCircle2 className="w-4 h-4 text-amber-600" />
-                    )}
-                  </div>
-                  <p className="text-stone-500 text-[11px] mt-0.5">
-                    Razorpay: UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, Netbanking.
-                  </p>
-                </div>
-              </div>
+          {/* 3. Payment: Cash on Delivery only */}
+          <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xs flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+              <Banknote className="w-5 h-5" />
             </div>
-
-            <div className="flex items-center gap-2 pt-2 text-[11px] text-stone-500">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>100% Secure Checkout & Encrypted Transaction</span>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-stone-900 text-sm">Cash on Delivery</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              </div>
+              <p className="text-stone-500 text-[11px] mt-0.5">
+                Pay in cash or UPI directly to our delivery person when your food arrives.
+              </p>
             </div>
           </div>
         </div>
@@ -852,7 +711,7 @@ export const CheckoutPage: React.FC = () => {
                         return;
                       }
                       setAppliedCoupon(couponCode.trim().toUpperCase());
-                      success(`Coupon "${couponCode.trim().toUpperCase()}" applied!`);
+                      success(`Coupon "${couponCode.trim().toUpperCase()}" will be applied when you place the order.`);
                     }}
                     className="px-3 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs transition-colors cursor-pointer"
                   >
@@ -872,7 +731,7 @@ export const CheckoutPage: React.FC = () => {
                 <span className="font-bold text-stone-900">₹{displayedTax}</span>
               </div>
               <div className="flex justify-between">
-                <span>Delivery Charge</span>
+                <span>Delivery Charge <span className="text-[10px] text-stone-400">(est.)</span></span>
                 <span>
                   {deliveryFee === 0 ? (
                     <span className="text-emerald-600 font-bold">FREE</span>
@@ -905,6 +764,17 @@ export const CheckoutPage: React.FC = () => {
               </div>
             )}
 
+            {!isOpen && (
+              <p className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-semibold">
+                We are closed right now. Orders can be placed during opening hours.
+              </p>
+            )}
+            {isOpen && subtotal < minOrder && (
+              <p className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-semibold">
+                Minimum order is ₹{minOrder}. Add ₹{minOrder - subtotal} more to continue.
+              </p>
+            )}
+
             <button
               type="button"
               onClick={handlePlaceOrder}
@@ -912,6 +782,8 @@ export const CheckoutPage: React.FC = () => {
                 isProcessing ||
                 isAddingAddress ||
                 !selectedAddressId ||
+                !isOpen ||
+                subtotal < minOrder ||
                 items.some((item) => !getProductAvailability(item.product).isAvailable)
               }
               className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 disabled:bg-stone-200 disabled:text-stone-400 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
@@ -925,7 +797,7 @@ export const CheckoutPage: React.FC = () => {
                 <span>Remove Unavailable Items to Order</span>
               ) : (
                 <span>
-                  Place Order ({paymentGateway === 'cod' ? 'Cash on Delivery' : 'Pay Online'})
+                  Place Order (Cash on Delivery)
                 </span>
               )}
             </button>

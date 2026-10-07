@@ -63,7 +63,7 @@ export const Footer: React.FC = () => {
             <ul className="text-xs space-y-1.5 text-stone-400">
               <li>• Hygienically prepped pure veg dishes</li>
               <li>• Farm-direct daily harvested veggies</li>
-              <li>• Cash on Delivery & Razorpay supported</li>
+              <li>• Cash on Delivery (cash or UPI to delivery person)</li>
               <li>• Live GPS tracking on all orders</li>
             </ul>
           </div>

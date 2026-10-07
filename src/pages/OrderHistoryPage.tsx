@@ -140,7 +140,7 @@ export const OrderHistoryPage: React.FC = () => {
                     className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
                       order.status === 'delivered'
                         ? 'bg-emerald-100 text-emerald-800'
-                        : order.status === 'cancelled'
+                        : order.status === 'cancelled' || order.status === 'rejected'
                         ? 'bg-rose-100 text-rose-800'
                         : 'bg-amber-100 text-amber-800'
                     }`}

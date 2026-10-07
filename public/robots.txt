@@ -2,7 +2,9 @@
 User-agent: *
 Allow: /
 Disallow: /checkout
-Disallow: /orders/
+Disallow: /orders
+Disallow: /order/
+Disallow: /auth
 Disallow: /profile
 
 # Sitemap location

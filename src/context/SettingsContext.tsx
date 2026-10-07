@@ -15,7 +15,7 @@ interface SettingsContextType {
 const defaultSettings: Settings = {
   id: 'default',
   is_store_open: true,
-  opening_time: '08:00',
+  opening_time: '07:00',
   closing_time: '23:00',
   announcement: 'Welcome to Hotel Atithi! Delicious pure veg & non-veg dining delivered fast.',
   min_order_amount: 149,
@@ -24,11 +24,11 @@ const defaultSettings: Settings = {
   delivery_fee_per_km: 10,
   free_delivery_threshold: 500,
   free_delivery_above: 500,
-  hotel_latitude: 15.3647,
-  hotel_longitude: 75.1240,
+  hotel_latitude: 15.806135,
+  hotel_longitude: 76.765092,
   hotel_name: 'Hotel Atithi',
-  hotel_address: 'Hotel Atithi, Raichur',
-  hotel_phone: '+91 98765 43210',
+  hotel_address: 'NH150A, Bassapura, Sindhanur, Raichur, Karnataka 584128',
+  hotel_phone: '',
   tax_percent: 5,
 };
 
@@ -39,7 +39,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState<boolean>(true);
   const [todayStoreHours, setTodayStoreHours] = useState<StoreHours | null>(null);
-  const [todayHoursText, setTodayHoursText] = useState<string>('Hours: 7:00 AM - 10:00 PM');
+  const [todayHoursText, setTodayHoursText] = useState<string>('Hours: 7:00 AM - 11:00 PM');
 
   const fetchSettings = async () => {
     try {
