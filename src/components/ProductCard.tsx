@@ -6,6 +6,7 @@ import { getProductAvailability } from '../utils/productAvailability';
 import { FALLBACK_FOOD_IMAGE, responsiveSrcSet, sizedImageUrl } from '../utils/image';
 import { useSettings } from '../context/SettingsContext';
 import { shortOpening } from '../utils/storeHours';
+import { isBogoProduct, useBogoLive } from '../promo/bogo';
 
 interface ProductCardProps {
   product: Product;
@@ -20,6 +21,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, showCategory 
   // Outside the hotel's timings every dish is unavailable, whatever its own serving window
   const { storeStatus } = useSettings();
   const storeClosed = !storeStatus.isOpen;
+  // Buy 1 Get 1 offer tag (display only, ends on its own)
+  const bogoLive = useBogoLive();
+  const bogo = bogoLive && isBogoProduct(product.name);
 
   const fallbackImage =
     product.type === 'food'
@@ -82,6 +86,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, showCategory 
         {product.unit && (
           <div className="hidden sm:block absolute top-3 right-3 bg-stone-900/80 backdrop-blur-sm text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
             {product.unit}
+          </div>
+        )}
+
+        {bogo && (
+          <div className="absolute bottom-0 inset-x-0 bg-red-600 text-white text-center text-[10px] sm:text-xs font-extrabold tracking-wide py-1">
+            BUY 1 GET 1 FREE
           </div>
         )}
 
@@ -159,6 +169,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, showCategory 
             <div className="font-display font-bold text-base sm:text-lg text-stone-900">
               ₹{product.price}
             </div>
+            {bogo && <p className="text-[10px] font-bold text-red-600 leading-tight">2 plates for ₹{product.price}</p>}
           </div>
 
           <div>

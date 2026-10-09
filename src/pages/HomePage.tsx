@@ -16,6 +16,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { imageSrcSet, sizedImageUrl } from '../utils/image';
 import { StoreClosedNotice } from '../components/StoreClosedNotice';
 import { CategorySeo } from '../components/CategorySeo';
+import { BogoBanner } from '../components/BogoBanner';
 import { useFoodCategories } from '../hooks/useFoodCategories';
 import { useSettings } from '../context/SettingsContext';
 import { categoryPath, slugify } from '../utils/slug';
@@ -372,6 +373,8 @@ export const HomePage: React.FC = () => {
       </div>
 
       <StoreClosedNotice />
+
+      {!showDishes && <BogoBanner />}
 
       {!showDishes ? (
         /* =========================================================================
